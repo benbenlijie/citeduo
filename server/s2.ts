@@ -4,7 +4,7 @@ import { createLimiter } from './rateLimit'
 
 const limiter = createLimiter(config.s2.minIntervalMs)
 
-/** Rate-limited Semantic Scholar fetch (1 req/s shared, faster with a key). */
+/** Rate-limited Semantic Scholar fetch (1 req/s, with or without an API key). */
 function s2Fetch(url: string, init?: RequestInit): Promise<Response> {
   return limiter(() => fetch(url, init))
 }

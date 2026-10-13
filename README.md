@@ -153,7 +153,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the long version.
 | `TRUST_PROXY` | off | Read the client IP from `X-Real-IP` / `X-Forwarded-For` — only behind a proxy you control. |
 | `SEMANTIC_SCHOLAR_API_KEY` | – | Without it you share S2's anonymous rate limit. |
 | `OPENALEX_API_KEY` | – | Avoids OpenAlex's anonymous limit. |
-| `S2_MIN_INTERVAL_MS` | `100`/`1000` | Minimum spacing between S2 calls (the default depends on whether a key is set). |
+| `S2_MIN_INTERVAL_MS` | `1000` | Minimum spacing between S2 calls, with or without a key. |
 | `OPENALEX_MIN_INTERVAL_MS` | – | Same, for OpenAlex. |
 | `CONNECT_MAX_EXPANSIONS` | `6` | Live S2 batch fetches allowed per relation search. |
 | `CONNECT_MAX_MS` | `25000` | Wall-clock budget for one relation search. |

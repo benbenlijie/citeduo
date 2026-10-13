@@ -556,7 +556,7 @@ links. `graphVersion`/`NETWORK_GRAPH_VERSION` bumped to 6.
 
 All Semantic Scholar and OpenAlex calls go through per-source limiters
 (`rateLimit.ts:createLimiter`) that serialize requests with a minimum spacing —
-`config.s2.minIntervalMs` (1000ms without a key, 100ms with one) and
+`config.s2.minIntervalMs` (1000ms with or without a key) and
 `config.openalex.minIntervalMs` (200ms). Failures never break the chain, so
 retries stay spaced. OpenAlex requests append `api_key` when `OPENALEX_API_KEY`
 is set (alongside the existing polite-pool `mailto`), and S2 already sends

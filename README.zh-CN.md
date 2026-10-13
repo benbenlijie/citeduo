@@ -152,7 +152,7 @@ citeduo/
 | `TRUST_PROXY` | 关闭 | 从 `X-Real-IP` / `X-Forwarded-For` 取客户端 IP——仅在你可控的反向代理之后开启。 |
 | `SEMANTIC_SCHOLAR_API_KEY` | – | 不配置则共享 S2 匿名限流。 |
 | `OPENALEX_API_KEY` | – | 避开 OpenAlex 匿名限流。 |
-| `S2_MIN_INTERVAL_MS` | `100`/`1000` | S2 调用最小间隔（默认值取决于是否配置了 key）。 |
+| `S2_MIN_INTERVAL_MS` | `1000` | S2 调用最小间隔（有无 key 相同）。 |
 | `OPENALEX_MIN_INTERVAL_MS` | – | 同上，针对 OpenAlex。 |
 | `CONNECT_MAX_EXPANSIONS` | `6` | 单次关联分析允许的实时 S2 批量抓取次数。 |
 | `CONNECT_MAX_MS` | `25000` | 单次关联分析的墙钟预算。 |

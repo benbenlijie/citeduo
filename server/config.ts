@@ -58,7 +58,7 @@ export const config = {
     base: 'https://api.semanticscholar.org/graph/v1',
     apiKey: env.semanticScholarApiKey,
     contactEmail: env.contactEmail,
-    minIntervalMs: num(Bun.env.S2_MIN_INTERVAL_MS, env.semanticScholarApiKey ? 100 : 1000),
+    minIntervalMs: num(Bun.env.S2_MIN_INTERVAL_MS, 1000),
   },
   openalex: {
     base: 'https://api.openalex.org',

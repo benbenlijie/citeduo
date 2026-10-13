@@ -8,7 +8,10 @@
     "typecheck:server": "bunx tsc --noEmit -p server/tsconfig.json",
     "dev:web": "pnpm --dir academic-paper-explorer dev",
     "build:web": "pnpm --dir academic-paper-explorer build",
-    "deploy": "bash scripts/deploy.sh"
+    "deploy": "bash scripts/deploy.sh",
+    "check:politeness": "bun run scripts/check-politeness-floors.ts",
+    "test:politeness": "bun test scripts/check-politeness-floors.test.ts",
+    "typecheck:politeness": "bunx tsc --noEmit -p scripts/tsconfig.json"
   },
   "devDependencies": {
     "@types/bun": "^1.4.2"
