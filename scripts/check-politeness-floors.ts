@@ -1,6 +1,7 @@
 /**
  * Network-free guard: the default upstream spacing in server/config.ts must
- * stay at or above each source's published floor.
+ * stay at or above each source's floor, published where the source documents
+ * one and project policy where it does not.
  *
  * Run: bun run scripts/check-politeness-floors.ts
  * Wired into CI via .github/workflows/ci.yml.
@@ -15,9 +16,14 @@ type Floor = {
   env: string
   /** Minimum allowed default (ms). */
   floorMs: number
-  /** Where the floor is published. */
+  /**
+   * `published` when the source states this spacing; `policy` when the number
+   * is this project's choice and the source states no such per-client rule.
+   */
+  basis: 'published' | 'policy'
+  /** The page the number is argued against. */
   sourceUrl: string
-  /** Optional note when the floor is a project policy, not a literal vendor rule. */
+  /** What the source actually says. Policy floors start with `Project politeness floor (N ms).` */
   note?: string
 }
 
@@ -25,11 +31,12 @@ type Floor = {
  * Published (or project-policy) floors. Keep the source URL next to each number
  * so a future change can be argued against the same document.
  */
-const FLOORS: Floor[] = [
+export const FLOORS: Floor[] = [
   {
     name: 'arXiv API',
     env: 'ARXIV_API_MIN_INTERVAL_MS',
     floorMs: 3000,
+    basis: 'published',
     sourceUrl: 'https://info.arxiv.org/help/api/tou.html',
     note: 'Terms: at most one request every three seconds, single connection.',
   },
@@ -40,23 +47,31 @@ const FLOORS: Floor[] = [
     // (one page per user open, then cache), so the project policy floor is 1000.
     // Raise the default to 15000 for a literal robots.txt reading.
     floorMs: 1000,
+    basis: 'policy',
     sourceUrl: 'https://arxiv.org/robots.txt',
     note: 'Project politeness floor (1000 ms). robots.txt Crawl-delay is 15 s for crawlers.',
   },
   {
     name: 'Semantic Scholar anonymous',
     env: 'S2_MIN_INTERVAL_MS',
-    // Both anonymous and keyed requests use a 1000 ms floor.
+    // Both anonymous and keyed requests use a 1000 ms floor. Only the keyed
+    // 1 RPS is published (checked separately in checkFloors).
     floorMs: 1000,
+    basis: 'policy',
     sourceUrl: 'https://www.semanticscholar.org/product/api',
-    note: 'Anonymous shared-pool spacing used when SEMANTIC_SCHOLAR_API_KEY is unset.',
+    note:
+      'Project politeness floor (1000 ms). The page puts unauthenticated requests in one rate limit ' +
+      'shared by all anonymous users and states no per-client rate; 1000 ms reuses the keyed 1 RPS.',
   },
   {
     name: 'OpenAlex',
     env: 'OPENALEX_MIN_INTERVAL_MS',
     floorMs: 200,
+    basis: 'policy',
     sourceUrl: 'https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication',
-    note: 'Default polite-pool spacing (mailto / API key raise the effective quota).',
+    note:
+      'Project politeness floor (200 ms). The page allows 10 requests/s without a key and 30 with a ' +
+      'free key; semantic search and searches with more than 5 boolean operators get 1 request/s.',
   },
 ]
 
@@ -107,7 +122,8 @@ export function checkFloors(source: string): { failures: string[]; successes: st
     }
     if (actual < floor.floorMs) {
       failures.push(
-        `${floor.name}: default ${actual} ms is below published floor ${floor.floorMs} ms ` +
+        `${floor.name}: default ${actual} ms is below ` +
+          `${floor.basis === 'policy' ? 'project policy' : 'published'} floor ${floor.floorMs} ms ` +
           `(${floor.env}). Source: ${floor.sourceUrl}` +
           (floor.note ? ` — ${floor.note}` : ''),
       )

@@ -557,9 +557,13 @@ links. `graphVersion`/`NETWORK_GRAPH_VERSION` bumped to 6.
 All Semantic Scholar and OpenAlex calls go through per-source limiters
 (`rateLimit.ts:createLimiter`) that serialize requests with a minimum spacing —
 `config.s2.minIntervalMs` (1000ms with or without a key) and
-`config.openalex.minIntervalMs` (200ms). Failures never break the chain, so
+`config.openalex.minIntervalMs` (200ms). Only the keyed S2 spacing is a
+published limit (1 RPS for an API key). Anonymous S2 shares one pool with all
+unauthenticated users and OpenAlex allows 10 req/s without a key, so 1000ms and
+200ms there are project policy (`scripts/check-politeness-floors.ts` cites the
+pages). Failures never break the chain, so
 retries stay spaced. OpenAlex requests append `api_key` when `OPENALEX_API_KEY`
-is set (alongside the existing polite-pool `mailto`), and S2 already sends
+is set (alongside the existing `mailto`), and S2 already sends
 `x-api-key`. This keeps fan-out crawls under the shared rate limits instead of
 bursting into 429s.
 
