@@ -17,8 +17,14 @@ import { INTERNAL_TOKEN } from './internal-token'
 import { db } from './db'
 import { createOpencodeClient, OpencodeManager } from './opencode'
 import { join } from 'node:path'
-import { cookieHeader, extractToken, safeEqual, withBasePath } from './auth'
+import { adminCookieHeader, cookieHeader, extractToken, isAdminAuthorized, safeEqual, withBasePath } from './auth'
 import { createApiPipeline } from './api-pipeline'
+import { attachVisitorCookie, captureApiEvent, ensureVisitorIdentity, isTrackablePath, recordCapturedEvent } from './analytics'
+import { demoQuotaEnabled, demoQuotaResponse, registerDemoRequest } from './demo-quota'
+import { demoQuotaResetRoute, demoQuotaRoute } from './routes/demo'
+import { analyticsPageViewRoute } from './routes/analytics'
+import { usageRoute } from './routes/usage'
+import { renderStatsPage } from './stats-page'
 
 const WEB_DIST = new URL('../academic-paper-explorer/dist', import.meta.url).pathname
 
@@ -28,6 +34,63 @@ const ACCESS_TOKEN = config.server.accessToken
 // size. Exempting these keeps a large paper from tripping the generic per-IP
 // limiter; the provider and per-request size caps still bound the work.
 const RATE_LIMIT_EXEMPT = ['/api/paper/session/', '/api/translate', '/api/llm/status']
+
+// The stats page is read-only but contains search terms and paper titles, so
+// it can have its own password. When ADMIN_TOKEN is absent it shares the app
+// token, which keeps the single-token deployment working unchanged.
+const ADMIN_TOKEN = config.server.adminToken
+const ADMIN_EXPECTED = ADMIN_TOKEN ?? ACCESS_TOKEN
+
+/** `/stats` and every future admin API share one auth gate. */
+function isAdminPath(pathname: string): boolean {
+  return pathname === '/stats' || pathname.startsWith('/api/admin/')
+}
+
+if (config.demo.public && !ADMIN_TOKEN) {
+  console.warn('[demo] DEMO_PUBLIC=1 without ADMIN_TOKEN: /stats and /api/admin/* will return 503')
+}
+if (config.demo.public && config.demo.requestLimit <= 0 && config.demo.visitorLimit <= 0) {
+  console.warn('[demo] DEMO_PUBLIC=1 without DEMO_DAILY_*_LIMIT: public traffic is unbounded')
+}
+if (config.demo.requestLimit > 0 || config.demo.visitorLimit > 0) {
+  console.log(
+    `[demo] daily budget: requests=${config.demo.requestLimit || '∞'} visitors=${config.demo.visitorLimit || '∞'} block=${config.demo.blockOnLimit ? 'on' : 'off'}`,
+  )
+}
+
+function isSecureRequest(req: Request, url: URL): boolean {
+  return url.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https'
+}
+
+function statsPageResponse(): Response {
+  return new Response(renderStatsPage(), {
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+    },
+  })
+}
+
+function adminLoginRedirect(req: Request, url: URL): Response | null {
+  if (!ADMIN_EXPECTED) return null
+  const token = url.searchParams.get('token')
+  if (!token || !safeEqual(token, ADMIN_EXPECTED)) return null
+  const clean = new URL(url)
+  clean.searchParams.delete('token')
+  const headers = new Headers({
+    Location: withBasePath(config.server.basePath, clean.pathname, clean.search),
+  })
+  const secure = isSecureRequest(req, url)
+  headers.append('Set-Cookie', adminCookieHeader(ADMIN_EXPECTED, secure))
+  // With no separate admin password the two tokens are the same; setting the
+  // app cookie too means a stats-first login does not bounce on app links.
+  if (!ADMIN_TOKEN && ACCESS_TOKEN) headers.append('Set-Cookie', cookieHeader(ACCESS_TOKEN, secure))
+  return new Response(null, { status: 302, headers })
+}
+
+function errorStatus(error: unknown): number {
+  return error instanceof ApiError ? error.status : 500
+}
 
 function unauthorized(): Response {
   const body = `<!doctype html><meta charset="utf-8"><title>需要访问口令</title>
@@ -105,49 +168,69 @@ if (opencodeManager) {
   process.on('SIGTERM', () => void shutdown())
 }
 
+async function dispatchApi(req: Request): Promise<Response> {
+  const url = new URL(req.url)
+  const p = url.pathname
+  if (p.startsWith('/api/ai/') && !(await aiAvailable())) {
+    throw new ApiError('LLM_UNAVAILABLE', 'AI 服务不可用，请稍后重试', 503)
+  }
+
+  if (p === '/api/analytics/pageview' && req.method === 'POST') return await analyticsPageViewRoute(req)
+  if (p === '/api/search' && req.method === 'POST') return await searchRoute(req)
+  if (p === '/api/details' && req.method === 'POST') return await detailsRoute(req)
+  if (p === '/api/network' && req.method === 'POST') return await networkRoute(req)
+  if (p === '/api/lineage' && req.method === 'POST') return await lineageRoute(req)
+  if (p === '/api/connect' && req.method === 'POST') return await connectRoute(req)
+  if (p === '/api/translate' && req.method === 'POST') return await translateRoute(req)
+  if (p === '/api/ai/session' && req.method === 'POST') return await aiSessionRoute(req, db, opencodeClient)
+  if (p === '/api/ai/chat' && req.method === 'POST') return await aiChatRoute(req, opencodeClient, db)
+  if (p === '/api/ai/history' && req.method === 'GET') return await aiHistoryRoute(req, opencodeClient)
+  if (p === '/api/ai/abort' && req.method === 'POST') {
+    const sessionId = url.searchParams.get('sessionId') ?? ''
+    return await aiAbortRoute(opencodeClient, sessionId)
+  }
+  if (p === '/api/ai/stream' && req.method === 'GET') {
+    const sessionId = url.searchParams.get('sessionId') ?? ''
+    return await aiStreamRoute(req, opencodeClient, sessionId)
+  }
+  if (p === '/api/llm/status' && req.method === 'GET') return await llmStatusRoute()
+  if (p.startsWith('/api/jobs/') && req.method === 'GET') return await jobRoute(req, p.split('/').pop()!)
+  if (p.startsWith('/api/neighbors/') && req.method === 'GET') return await neighborsRoute(p.split('/').pop()!)
+  if (p.startsWith('/api/reader/') && req.method === 'GET') {
+    return await readerRoute(req, decodeURIComponent(p.slice('/api/reader/'.length)), db)
+  }
+  if (p.startsWith('/api/paper/session/') && p.endsWith('/search') && req.method === 'GET') {
+    return await paperSearchRoute(req, db, INTERNAL_TOKEN)
+  }
+  const sectionMatch = p.match(/^\/api\/paper\/session\/([^/]+)\/section\/(\d+)$/)
+  if (sectionMatch && req.method === 'GET') {
+    return await paperSectionRoute(req, sectionMatch[1], Number(sectionMatch[2]), db, INTERNAL_TOKEN)
+  }
+  throw new ApiError('VALIDATION_FAILED', `未知接口: ${p}`, 404)
+}
+
 const handleApi = createApiPipeline({
   rateLimitPerMin: config.server.rateLimitPerMin,
   trustProxy: config.server.trustProxy,
   requestIp: safeRequestIp,
   rateLimitExempt: RATE_LIMIT_EXEMPT,
   dispatch: async (req) => {
-    const url = new URL(req.url)
-    const p = url.pathname
-    if (p.startsWith('/api/ai/') && !(await aiAvailable())) {
-      throw new ApiError('LLM_UNAVAILABLE', 'AI 服务不可用，请稍后重试', 503)
+    // Consume a clone before the route reads the real body. Failure to parse
+    // analytics must never fail the user's request.
+    let captured: Awaited<ReturnType<typeof captureApiEvent>> = null
+    try {
+      captured = await captureApiEvent(req)
+    } catch {
+      captured = null
     }
-
-    if (p === '/api/search' && req.method === 'POST') return await searchRoute(req)
-    if (p === '/api/details' && req.method === 'POST') return await detailsRoute(req)
-    if (p === '/api/network' && req.method === 'POST') return await networkRoute(req)
-    if (p === '/api/lineage' && req.method === 'POST') return await lineageRoute(req)
-    if (p === '/api/connect' && req.method === 'POST') return await connectRoute(req)
-    if (p === '/api/translate' && req.method === 'POST') return await translateRoute(req)
-    if (p === '/api/ai/session' && req.method === 'POST') return await aiSessionRoute(req, db, opencodeClient)
-    if (p === '/api/ai/chat' && req.method === 'POST') return await aiChatRoute(req, opencodeClient, db)
-    if (p === '/api/ai/history' && req.method === 'GET') return await aiHistoryRoute(req, opencodeClient)
-    if (p === '/api/ai/abort' && req.method === 'POST') {
-      const sessionId = url.searchParams.get('sessionId') ?? ''
-      return await aiAbortRoute(opencodeClient, sessionId)
+    try {
+      const res = await dispatchApi(req)
+      recordCapturedEvent(req, captured, res.status)
+      return res
+    } catch (error) {
+      recordCapturedEvent(req, captured, errorStatus(error))
+      throw error
     }
-    if (p === '/api/ai/stream' && req.method === 'GET') {
-      const sessionId = url.searchParams.get('sessionId') ?? ''
-      return await aiStreamRoute(req, opencodeClient, sessionId)
-    }
-    if (p === '/api/llm/status' && req.method === 'GET') return await llmStatusRoute()
-    if (p.startsWith('/api/jobs/') && req.method === 'GET') return await jobRoute(req, p.split('/').pop()!)
-    if (p.startsWith('/api/neighbors/') && req.method === 'GET') return await neighborsRoute(p.split('/').pop()!)
-    if (p.startsWith('/api/reader/') && req.method === 'GET') {
-      return await readerRoute(req, decodeURIComponent(p.slice('/api/reader/'.length)), db)
-    }
-    if (p.startsWith('/api/paper/session/') && p.endsWith('/search') && req.method === 'GET') {
-      return await paperSearchRoute(req, db, INTERNAL_TOKEN)
-    }
-    const sectionMatch = p.match(/^\/api\/paper\/session\/([^/]+)\/section\/(\d+)$/)
-    if (sectionMatch && req.method === 'GET') {
-      return await paperSectionRoute(req, sectionMatch[1], Number(sectionMatch[2]), db, INTERNAL_TOKEN)
-    }
-    throw new ApiError('VALIDATION_FAILED', `未知接口: ${p}`, 404)
   },
 })
 
@@ -163,13 +246,26 @@ server = Bun.serve({
     const p = url.pathname
     try {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204 })
+      const secure = isSecureRequest(req, url)
+      const adminPath = isAdminPath(p)
 
-      if (ACCESS_TOKEN && !p.startsWith('/api/paper/session/')) {
+      if (adminPath) {
+        if (config.demo.public && !ADMIN_TOKEN) {
+          return new Response('Public demo requires ADMIN_TOKEN for the dashboard and admin APIs.', {
+            status: 503,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
+          })
+        }
+        if (!isAdminAuthorized(req.headers, url, ADMIN_EXPECTED)) return unauthorized()
+        if (p === '/stats') {
+          const redirect = adminLoginRedirect(req, url)
+          if (redirect) return redirect
+        }
+      } else if (ACCESS_TOKEN && !p.startsWith('/api/paper/session/')) {
         const { token, fromQuery } = extractToken(req.headers, url)
         if (fromQuery && token && safeEqual(token, ACCESS_TOKEN)) {
           const clean = new URL(url)
           clean.searchParams.delete('token')
-          const secure = url.protocol === 'https:' || req.headers.get('x-forwarded-proto') === 'https'
           return new Response(null, {
             status: 302,
             headers: {
@@ -181,8 +277,42 @@ server = Bun.serve({
         if (!token || !safeEqual(token, ACCESS_TOKEN)) return unauthorized()
       }
 
-      if (p.startsWith('/api/')) return await handleApi(req)
-      return await serveStatic(p)
+      // The operator can always get in with the admin token; anonymous demo
+      // visitors cannot spend the server-side LLM budget.
+      const adminBypass = ADMIN_EXPECTED != null && isAdminAuthorized(req.headers, url, ADMIN_EXPECTED)
+      if (config.demo.public && !adminBypass && (p === '/api/translate' || p.startsWith('/api/ai/'))) {
+        return json({
+          error: {
+            code: 'DEMO_FEATURE_DISABLED',
+            message: '公开 demo 暂不提供服务器端 AI / 翻译；请使用浏览器翻译，或在本地部署使用完整功能。',
+          },
+        }, 403)
+      }
+
+      const tracked = isTrackablePath(p)
+      // Internal retrieval calls carry the internal token, not a public cookie;
+      // they should not burn the demo budget while an admin uses the assistant.
+      const quotaCounted = tracked && !p.startsWith('/api/paper/session/')
+      const wantIdentity = (tracked && config.analytics.enabled) || (quotaCounted && demoQuotaEnabled())
+      const identity = wantIdentity ? ensureVisitorIdentity(req, { secure }) : null
+
+      if (quotaCounted && demoQuotaEnabled() && !adminBypass) {
+        const decision = registerDemoRequest(identity?.visitorId ?? null)
+        if (decision.blocked) {
+          const limited = demoQuotaResponse(decision.status, { api: p.startsWith('/api/') })
+          return identity ? attachVisitorCookie(limited, identity) : limited
+        }
+      }
+
+      let res: Response
+      if (p === '/stats') res = statsPageResponse()
+      else if (p === '/api/admin/usage') res = usageRoute(url)
+      else if (p === '/api/admin/demo-quota' && req.method === 'GET') res = demoQuotaRoute()
+      else if (p === '/api/admin/demo-quota/reset' && req.method === 'POST') res = demoQuotaResetRoute()
+      else if (p.startsWith('/api/')) res = await handleApi(req)
+      else res = await serveStatic(p)
+
+      return identity ? attachVisitorCookie(res, identity) : res
     } catch (e) {
       return handleError(e)
     }

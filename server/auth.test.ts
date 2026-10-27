@@ -1,5 +1,16 @@
 import { test, expect } from 'bun:test'
-import { bearerToken, cookieValue, extractToken, isAuthorized, safeEqual, clientIpFrom, cookieHeader } from './auth'
+import {
+  adminCookieHeader,
+  adminTokenFrom,
+  bearerToken,
+  clientIpFrom,
+  cookieHeader,
+  cookieValue,
+  extractToken,
+  isAdminAuthorized,
+  isAuthorized,
+  safeEqual,
+} from './auth'
 
 test('bearerToken parses a Bearer header', () => {
   expect(bearerToken('Bearer abc')).toBe('abc')
@@ -73,4 +84,34 @@ test('withBasePath prefixes a sub-path mount', async () => {
   expect(withBasePath('/papers', '/x', '?a=1')).toBe('/papers/x?a=1')
   expect(withBasePath('/papers/', '/x')).toBe('/papers/x')
   expect(withBasePath('', '/x')).toBe('/x')
+})
+
+test('adminTokenFrom prefers a query token, then cp_admin, then the app cookie', () => {
+  const query = adminTokenFrom(new Headers(), new URL('https://x/stats?token=admin'))
+  expect(query).toBe('admin')
+
+  const adminCookie = adminTokenFrom(
+    new Headers({ cookie: 'cp_admin=admin; cp_token=app' }),
+    new URL('https://x/stats'),
+  )
+  expect(adminCookie).toBe('admin')
+
+  const appFallback = adminTokenFrom(
+    new Headers({ cookie: 'cp_token=app' }),
+    new URL('https://x/stats'),
+  )
+  expect(appFallback).toBe('app')
+})
+
+test('isAdminAuthorized is open without a password and constant-time with one', () => {
+  expect(isAdminAuthorized(new Headers(), new URL('https://x/stats'), undefined)).toBe(true)
+  expect(isAdminAuthorized(new Headers({ authorization: 'Bearer good' }), new URL('https://x/stats'), 'good')).toBe(true)
+  expect(isAdminAuthorized(new Headers({ authorization: 'Bearer bad' }), new URL('https://x/stats'), 'good')).toBe(false)
+})
+
+test('adminCookieHeader is HttpOnly and optionally Secure', () => {
+  expect(adminCookieHeader('secret', true)).toContain('cp_admin=secret')
+  expect(adminCookieHeader('secret', true)).toContain('HttpOnly')
+  expect(adminCookieHeader('secret', true)).toContain('Secure')
+  expect(adminCookieHeader('secret', false)).not.toContain('Secure')
 })

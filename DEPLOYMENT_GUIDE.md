@@ -220,6 +220,54 @@ cp data/app.db data/app.db.bak        # 备份
 git pull && bun run build:web && sudo systemctl restart citeduo
 ```
 
+### 5.9 使用统计
+
+访问 `https://watchdeep.net/papers/stats`（子路径部署时）查看第一方统计；数据写在同一个 `data/app.db` 的 `usage_events` 表里，不接第三方，不存原始 IP/UA。
+
+- 与主应用共用 `ACCESS_TOKEN`；想让统计页用独立口令，在 `server/.env` 加 `ADMIN_TOKEN=一段随机口令`，然后打开一次 `https://watchdeep.net/papers/stats?token=那段口令`，服务端会写入独立 Cookie。
+- 不想收集时设 `ANALYTICS_ENABLED=0` 并重启。
+- 页面浏览由前端在 SPA 路由变化时上报；搜索、建图、翻译、AI 等由服务端记录。日志轮转不影响统计，因为数据在 SQLite 里。
+- 备份时连同 `data/app.db` 一起备份；`usage_events` 表由启动时的 schema 自动创建。
+
+### 5.10 公开 Demo 模式（每日预算 + 报警）
+
+把站点放开给外网时，不要让 `ACCESS_TOKEN` 为空却没有预算保护。推荐配置：
+
+```env
+# 应用公开；看板和管理接口仍然要这个口令
+ACCESS_TOKEN=
+ADMIN_TOKEN=换一段新的随机口令
+
+DEMO_PUBLIC=1
+DEMO_DAILY_VISITOR_LIMIT=300
+DEMO_DAILY_REQUEST_LIMIT=5000
+DEMO_BLOCK_ON_LIMIT=1
+
+# 报警：generic / slack / discord / feishu；不填则只写 journal
+DEMO_ALERT_FORMAT=generic
+DEMO_ALERT_WEBHOOK=
+
+# 公开实例：关闭服务端全文和付费 LLM，浏览器翻译仍可用
+PAPER_CONTENT_MODE=off
+LLM_PROVIDERS=[{"name":"browser","kind":"browser"}]
+OPENCODE_ENABLED=0
+```
+
+口径：
+
+- 预算统计 HTML 导航 + `/api/*` 请求，不统计静态资源；同一匿名 Cookie 每天只算一个访客。
+- 请求数或访客数超过上限后，当天后续页面/API 返回 `429`，本地时间次日 00:00 自动重置。
+- 带 `ADMIN_TOKEN` 的请求（Cookie、`?token=` 或 `Authorization: Bearer`）不受预算限制，方便你自己排查。
+- 超限只报警一次；报警内容写入 journal，配置 webhook 后会同时推送。
+- 紧急放行/查看状态（`ADMIN_TOKEN` 从服务器 `.env` 读取，不要贴到公开地方）：
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" https://watchdeep.net/papers/api/admin/demo-quota
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://watchdeep.net/papers/api/admin/demo-quota/reset
+```
+
+公开 demo 不要把服务端 LLM key 暴露给匿名用户；如果确实要保留 AI/翻译，请换一把有限额、可随时吊销的 key，并考虑把 `DEMO_PUBLIC=1` 的服务端 AI/翻译继续关掉（当前代码会直接拒绝匿名访问 `/api/translate` 和 `/api/ai/*`）。
+
 ## 6. 子路径挂载（例如 https://watchdeep.net/papers/）
 
 若不想占用域名根（根已被其他站点使用），可挂到子路径：

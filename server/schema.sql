@@ -150,3 +150,46 @@ create table if not exists ai_sessions (
   updated_at text not null default (datetime('now'))
 );
 create unique index if not exists ai_sessions_session_idx on ai_sessions(session_id);
+
+-- First-party usage analytics. One row per meaningful client action; no raw
+-- IPs, user agents or message bodies. `visitor_id` is a random first-party
+-- cookie value, `session_id` is derived from it and a 30-minute window.
+create table if not exists usage_events (
+  id          integer primary key autoincrement,
+  visitor_id  text not null,
+  session_id  text not null,
+  event       text not null,
+  path        text,
+  paper_id    text,
+  query       text,
+  referrer    text,
+  browser     text,
+  device      text,
+  status      integer,
+  meta        text not null default '{}',
+  created_at  text not null default (datetime('now'))
+);
+create index if not exists usage_events_created_idx   on usage_events(created_at);
+create index if not exists usage_events_event_idx     on usage_events(event, created_at);
+create index if not exists usage_events_visitor_idx   on usage_events(visitor_id, created_at);
+create index if not exists usage_events_paper_idx     on usage_events(paper_id, created_at);
+
+-- Public-demo daily budget. `day` is the local calendar day; once `blocked`
+-- flips, the rest of that day is refused without touching the counter again.
+-- `demo_visitors` deduplicates the anonymous cookie id per day.
+create table if not exists demo_daily (
+  day         text primary key,
+  requests    integer not null default 0,
+  visitors    integer not null default 0,
+  blocked     integer not null default 0,
+  alerted_at  text,
+  created_at  text not null default (datetime('now')),
+  updated_at  text not null default (datetime('now'))
+);
+
+create table if not exists demo_visitors (
+  day         text not null,
+  visitor_id  text not null,
+  created_at  text not null default (datetime('now')),
+  primary key (day, visitor_id)
+);

@@ -8,7 +8,9 @@
 [![React](https://img.shields.io/badge/React-18-61dafb?logo=react)](https://react.dev)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**[Live demo →](https://watchdeep.net/paper-demo/)** · [中文说明](README.zh-CN.md) · [Architecture](ARCHITECTURE.md)
+**[Live demo →](https://watchdeep.net/papers/)** · [中文说明](README.zh-CN.md) · [Architecture](ARCHITECTURE.md)
+
+The public demo is open without a token. It has a daily visitor/request budget and returns a friendly `429` when the budget is exhausted, so a burst of traffic cannot run up API or LLM bills. Run CiteDuo locally for unlimited use.
 
 ![The citation network, live](docs/images/graph-demo.gif)
 
@@ -79,7 +81,7 @@ Two papers side by side, each with its own citation graph, sharing the filters a
 - **Notes, favourites, collections** and saved searches, all local.
 - **Import/export**: PNG of the current view, JSON, BibTeX, CSV, or the full crawled network as JSON.
 - **Shareable deep links.** The paper, filters, encoding, view mode and the compared pair all round-trip through the URL — including `?from=<id>&to=<id>`, which re-runs a relation analysis for whoever opens it.
-- **Optional access token** if you put it on a public host.
+- **Optional access token**, or a public-demo daily visitor/request budget if you want the GitHub demo open to everyone.
 
 ## Quick start
 
@@ -149,6 +151,13 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the long version.
 | `PORT` | `8787` | Listen port (loopback only). |
 | `HOST` | `127.0.0.1` | Set to `0.0.0.0` only if you add your own TLS/reverse proxy. |
 | `ACCESS_TOKEN` | – | If set, the whole app requires this token (`?token=…` sets a cookie). Leave unset for an open instance. |
+| `ADMIN_TOKEN` | – | Optional separate password for the usage dashboard. Falls back to `ACCESS_TOKEN`. Required for a public demo. |
+| `DEMO_PUBLIC` | `0` | `1` enables the public-demo guard: anonymous server AI/translation is refused and the daily budget is enforced. |
+| `DEMO_DAILY_VISITOR_LIMIT` | `0` | Daily unique-visitor cap for the public demo; `0` = unlimited. |
+| `DEMO_DAILY_REQUEST_LIMIT` | `0` | Daily HTML/API request cap for the public demo; `0` = unlimited. |
+| `DEMO_BLOCK_ON_LIMIT` | `1` | `0` = alert only; the default returns `429` for the rest of the day. |
+| `DEMO_ALERT_WEBHOOK` | – | Optional webhook for the one-time over-limit alert; otherwise the alert goes to the journal. |
+| `ANALYTICS_ENABLED` | `1` | `0` disables first-party usage collection entirely. |
 | `RATE_LIMIT_PER_MIN` | `120` | Per-IP requests/minute on `/api/*`. `0` disables. |
 | `TRUST_PROXY` | off | Read the client IP from `X-Real-IP` / `X-Forwarded-For` — only behind a proxy you control. |
 | `SEMANTIC_SCHOLAR_API_KEY` | – | Without it you share S2's anonymous rate limit. |
@@ -165,6 +174,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the long version.
 | `ABSTRACT_MEMO_MAX` | `500` | Cap on in-memory CC0 abstracts when `PAPER_CONTENT_MODE=off`; oldest entries are evicted first. `0` disables the memo. Non-numeric values fall back to 500. |
 
 The complete list, including the crawl and translation knobs, is in [`server/.env.example`](server/.env.example).
+
+**Usage analytics** — meaningful actions are appended to `usage_events` in the same SQLite file (`data/app.db`): page views, searches, graph builds, reader opens, translations and AI sessions. The dashboard is at `/stats` (`/papers/stats` when mounted under a sub-path) and is protected by `ACCESS_TOKEN`; set `ADMIN_TOKEN` to give it a separate password and open `/stats?token=…` once. Page views are reported by the SPA on route changes; API events are recorded server-side. The table stores an anonymous first-party cookie id, not raw IPs or user agents, and strips query strings from page paths and referrers so an access token can never end up in analytics.
+
+**Public demo** — leave `ACCESS_TOKEN` unset, set `ADMIN_TOKEN` (the dashboard/admin APIs still need it), and set `DEMO_DAILY_VISITOR_LIMIT` / `DEMO_DAILY_REQUEST_LIMIT`. Request counting covers HTML navigations and API calls, not static assets. When either cap is crossed, the current day returns `429` until local midnight; `DEMO_BLOCK_ON_LIMIT=0` switches to alert-only. Set `DEMO_ALERT_WEBHOOK` plus `DEMO_ALERT_FORMAT=generic|slack|discord|feishu` for an external alert; otherwise the alert goes to the server journal. `GET /api/admin/demo-quota` shows the state and `POST /api/admin/demo-quota/reset` is the emergency reset. For a public instance also set `PAPER_CONTENT_MODE=off`. `DEMO_PUBLIC=1` already refuses anonymous `/api/translate` and `/api/ai/*`, so a server-side key is only usable by an admin; if you want no paid key in the public process at all, set `LLM_PROVIDERS=[{"name":"browser","kind":"browser"}]` and `OPENCODE_ENABLED=0`.
 
 **Reader and arXiv usage** — the in-app reader can show a paper's full text, but arXiv's terms of use only allow storing and serving e-print content "for your own personal use, or for research purposes" ([tou.html](https://info.arxiv.org/help/api/tou.html)). `PAPER_CONTENT_MODE` therefore defaults to `auto`: `full` on a loopback-only instance, `off` anywhere else. With `off` the reader returns the abstract, the metadata and a link to the paper's arXiv page, and writes nothing to disk. A public demo should leave it at `off`; permissive licences could later be detected per paper and served individually.
 
@@ -202,13 +215,17 @@ Without an `openai` provider or with opencode unavailable, `/api/ai/*` returns `
 | `POST /api/ai/session` · `POST /api/ai/chat` · `GET /api/ai/stream` · `GET /api/ai/history` · `POST /api/ai/abort` | AI assistant session, streaming answers and tool activity. |
 | `GET /api/llm/status` | Which LLM/translation providers are available. |
 | `GET /api/jobs/:id` | Background job status. |
+| `POST /api/analytics/pageview` | SPA route-change beacon for first-party page-view counts. |
+| `GET /api/admin/usage?range=7d\|30d\|90d\|all` | Aggregate usage JSON for the `/stats` dashboard. |
+| `GET /api/admin/demo-quota` | Current public-demo daily budget state. |
+| `POST /api/admin/demo-quota/reset` | Emergency reset of today's public-demo budget. |
 | `GET /api/paper/session/:id/search?q=` · `GET /api/paper/session/:id/section/:idx` | Full-text retrieval used by the assistant's tools (`X-Internal-Token`). |
 
 ## Development
 
 ```bash
-bun run test:server                        # backend (220 tests)
-pnpm --dir academic-paper-explorer test    # frontend (412 tests)
+bun run test:server                        # backend
+pnpm --dir academic-paper-explorer test    # frontend
 bun run typecheck:server
 pnpm --dir academic-paper-explorer typecheck
 pnpm --dir academic-paper-explorer lint
@@ -220,7 +237,7 @@ CI runs exactly these on every push and pull request. See [CONTRIBUTING.md](CONT
 
 `bun run deploy` builds the frontend and rsyncs the tree to a host you configure in `scripts/deploy.sh`, then restarts the service and health-checks the URL. The bundled guide covers a sub-path deployment behind nginx with TLS, the token gate, and running it as a systemd unit — see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
 
-> The [live demo](https://watchdeep.net/paper-demo/) is a second instance of the same build with `ACCESS_TOKEN` unset, a snapshot database, tighter rate limits and no LLM configured — so the AI assistant and LLM translation are disabled there. It exists to try the app, not to hold your data.
+> The [live demo](https://watchdeep.net/papers/) is open without a token but has a daily visitor/request budget; after the cap it returns `429` until local midnight. Anonymous visitors cannot use server-side AI/translation (browser translation still works). It exists to try the app, not to hold your data.
 
 ## Roadmap
 

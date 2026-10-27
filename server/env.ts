@@ -8,6 +8,11 @@ export const env = {
   openalexApiKey: opt('OPENALEX_API_KEY'),
   contactEmail: opt('CONTACT_EMAIL') ?? 'researcher@example.com',
   accessToken: opt('ACCESS_TOKEN'),
+  /** Optional separate password for /stats; falls back to ACCESS_TOKEN. */
+  adminToken: opt('ADMIN_TOKEN'),
+  demoPublic: opt('DEMO_PUBLIC') === '1',
+  demoAlertWebhook: opt('DEMO_ALERT_WEBHOOK'),
+  demoAlertFormat: opt('DEMO_ALERT_FORMAT'),
   internalToken: opt('INTERNAL_TOKEN'),
   basePath: opt('BASE_PATH') ?? '',
   trustProxy: opt('TRUST_PROXY') === '1' || opt('TRUST_PROXY') === 'true',

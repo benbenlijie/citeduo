@@ -140,8 +140,23 @@ export const config = {
     port: env.port,
     hostname: env.hostname,
     accessToken: env.accessToken,
+    adminToken: env.adminToken,
     basePath: env.basePath,
     trustProxy: env.trustProxy,
     rateLimitPerMin: num(Bun.env.RATE_LIMIT_PER_MIN, 120),
+  },
+  analytics: {
+    /** Set ANALYTICS_ENABLED=0 to disable collection entirely. */
+    enabled: (Bun.env.ANALYTICS_ENABLED ?? '1') !== '0',
+  },
+  demo: {
+    /** Public GitHub demo: relax paid server-side features and enable budgets. */
+    public: env.demoPublic,
+    /** 0 = unlimited. Counts HTML navigations and API calls, not static assets. */
+    requestLimit: Math.max(0, Math.floor(num(Bun.env.DEMO_DAILY_REQUEST_LIMIT, 0))),
+    visitorLimit: Math.max(0, Math.floor(num(Bun.env.DEMO_DAILY_VISITOR_LIMIT, 0))),
+    blockOnLimit: (Bun.env.DEMO_BLOCK_ON_LIMIT ?? '1') !== '0',
+    alertWebhook: env.demoAlertWebhook,
+    alertFormat: (env.demoAlertFormat ?? 'generic').toLowerCase(),
   },
 } as const

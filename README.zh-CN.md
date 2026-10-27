@@ -7,7 +7,9 @@
 [![Bun](https://img.shields.io/badge/Bun-1.3%2B-black?logo=bun)](https://bun.sh)
 [![React](https://img.shields.io/badge/React-18-61dafb?logo=react)](https://react.dev)
 
-**[在线 Demo →](https://watchdeep.net/paper-demo/)** · [English](README.md) · [架构说明](ARCHITECTURE.md)
+**[在线 Demo →](https://watchdeep.net/papers/)** · [English](README.md) · [架构说明](ARCHITECTURE.md)
+
+公开 demo 无需口令，但有每日访客/请求预算；超出后会返回友好的 `429`，避免流量突增带来 API 或 LLM 账单。想无限使用请在本地部署。
 
 ![引用网络图（动图）](docs/images/graph-demo.gif)
 
@@ -78,7 +80,7 @@
 - **笔记、收藏、集合、保存的搜索**，全部存在本地。
 - **导出**：当前视图导出为 PNG，或 JSON / BibTeX / CSV，也可导出完整抓取网络为 JSON。
 - **可分享的深链**：当前论文、过滤条件、编码方式、视图模式、对比的那一篇都会写进地址栏；其中 `?from=<id>&to=<id>` 会在对方打开时自动重跑这次关联分析。
-- **可选的访问口令**：把服务放到公网时用来加一道门。
+- **可选的访问口令**，或者公开 demo 的每日访客/请求预算：把服务放到公网时用来加一道门。
 
 ## 快速开始
 
@@ -147,7 +149,12 @@ citeduo/
 | --- | --- | --- |
 | `PORT` | `8787` | 监听端口（默认仅回环）。 |
 | `HOST` | `127.0.0.1` | 只有在你自己加了 TLS/反代时才改成 `0.0.0.0`。 |
-| `ACCESS_TOKEN` | – | 设置后整个应用需要口令（`?token=…` 会种下 cookie）。不设置即为公开实例。 |
+| `ACCESS_TOKEN` | – | 设置后整个应用需要口令（`?token=…` 会种下 cookie）。公开 demo 留空。 |
+| `ADMIN_TOKEN` | – | 看板和管理接口的独立口令；公开 demo 必填。 |
+| `DEMO_PUBLIC` | `0` | `1` 开启公开 demo 保护：匿名用户不能用服务端 AI/翻译，并启用每日预算。 |
+| `DEMO_DAILY_VISITOR_LIMIT` | `0` | 公开 demo 每日访客上限；`0` = 不限。 |
+| `DEMO_DAILY_REQUEST_LIMIT` | `0` | 公开 demo 每日页面/API 请求上限；`0` = 不限。 |
+| `DEMO_ALERT_WEBHOOK` | – | 超限报警 webhook；不填写 journal。 |
 | `RATE_LIMIT_PER_MIN` | `120` | 每 IP 每分钟 `/api/*` 请求数；`0` 关闭。 |
 | `TRUST_PROXY` | 关闭 | 从 `X-Real-IP` / `X-Forwarded-For` 取客户端 IP——仅在你可控的反向代理之后开启。 |
 | `SEMANTIC_SCHOLAR_API_KEY` | – | 不配置则共享 S2 匿名限流。 |
@@ -165,6 +172,8 @@ citeduo/
 | `ABSTRACT_MEMO_MAX` | `500` | `PAPER_CONTENT_MODE=off` 时内存中保留的 CC0 摘要条数上限；超出后淘汰最旧的一条。`0` 关闭该缓存；非数字回退为 500。 |
 
 完整清单（含爬取、翻译等开关）见 [`server/.env.example`](server/.env.example)。
+
+**公开 demo** —— 留空 `ACCESS_TOKEN`，设置 `ADMIN_TOKEN`（看板和管理接口仍要它），再设置 `DEMO_DAILY_VISITOR_LIMIT` / `DEMO_DAILY_REQUEST_LIMIT`。计数覆盖 HTML 导航和 API 请求，不含静态资源；超过任一条后当天后续页面/API 返回 `429`，本地时间次日 00:00 自动恢复。`DEMO_BLOCK_ON_LIMIT=0` 可改成只报警不拦截。报警默认写 journal，配置 `DEMO_ALERT_WEBHOOK` 和 `DEMO_ALERT_FORMAT=generic|slack|discord|feishu` 后会推送。`GET /api/admin/demo-quota` 查看状态，`POST /api/admin/demo-quota/reset` 紧急放行。公开实例还应设置 `PAPER_CONTENT_MODE=off`。`DEMO_PUBLIC=1` 已经会自动拒绝匿名访问 `/api/translate` 和 `/api/ai/*`，所以服务端 key 只有管理员能用；如果希望公开进程里完全不保留付费 key，再设置 `LLM_PROVIDERS=[{"name":"browser","kind":"browser"}]` 和 `OPENCODE_ENABLED=0`。
 
 **阅读器与 arXiv 使用条款** —— 应用内阅读器可以显示论文全文，但 arXiv 条款只允许「为你个人使用或研究目的」存储和提供 e-print 内容（[tou.html](https://info.arxiv.org/help/api/tou.html)）。因此 `PAPER_CONTENT_MODE` 默认是 `auto`：仅回环实例解析为 `full`，其他情况解析为 `off`。`off` 时阅读器返回摘要、元数据与原文 arXiv 链接，并且不向磁盘写入任何缓存。公开 demo 应保持 `off`；后续可以按论文检测许可，对开放许可的论文单独提供全文。
 
@@ -220,7 +229,7 @@ CI 在每次 push 与 PR 上跑的就是这些。提交信息约定与开发流�
 
 `bun run deploy` 会构建前端、把仓库同步到 `scripts/deploy.sh` 里配置的主机，然后重启服务并做健康检查。仓库内的指南覆盖了 nginx + TLS 的子路径部署、访问口令与 systemd 常驻——见 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)。
 
-> [在线 Demo](https://watchdeep.net/paper-demo/) 是同一份构建的第二个实例：不设 `ACCESS_TOKEN`、使用数据库快照、限流更严、且没有配置 LLM，因此那里的 AI 助手与 LLM 翻译是关闭的。它只用于试用，不适合存放你的数据。
+> [在线 Demo](https://watchdeep.net/papers/) 不设应用口令，但有每日访客/请求预算；超限后当天返回 `429`，次日自动恢复。匿名用户不能使用服务端 AI/翻译，浏览器翻译仍可用；它只用于试用，不适合存放你的数据。
 
 ## 路线图
 

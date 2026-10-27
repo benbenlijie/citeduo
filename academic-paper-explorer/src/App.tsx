@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { PageViewTracker } from './components/PageViewTracker'
 
 const ReaderPage = React.lazy(() => import('./pages/ReaderPage'))
 
@@ -25,6 +26,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <Router basename={basename}>
+          <PageViewTracker />
           <div className="min-h-screen bg-gray-900 text-white">
             <Routes>
               <Route path="/" element={<HomePage />} />

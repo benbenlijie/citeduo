@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 
 export const AUTH_COOKIE = 'cp_token'
+export const ADMIN_COOKIE = 'cp_admin'
 
 export function bearerToken(authorization: string | null): string | null {
   if (!authorization) return null
@@ -76,6 +77,38 @@ export function clientIpFrom(headers: Headers, trustProxy: boolean, fallback: st
 
 export function cookieHeader(token: string, secure: boolean): string {  const parts = [
     `${AUTH_COOKIE}=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    'Max-Age=2592000',
+  ]
+  if (secure) parts.push('Secure')
+  return parts.join('; ')
+}
+
+/**
+ * Token for the read-only stats page. A query token wins so an operator can
+ * rotate ADMIN_TOKEN and log in again while an old cookie is still present;
+ * the dedicated admin cookie never mixes with the shared app cookie.
+ */
+export function adminTokenFrom(headers: Headers, url: URL): string | null {
+  const header = headers.get('x-admin-token') ?? bearerToken(headers.get('authorization'))
+  if (header) return header
+  const query = url.searchParams.get('token')
+  if (query) return query
+  return cookieValue(headers.get('cookie'), ADMIN_COOKIE)
+    ?? cookieValue(headers.get('cookie'), AUTH_COOKIE)
+}
+
+export function isAdminAuthorized(headers: Headers, url: URL, expected: string | undefined): boolean {
+  if (!expected) return true
+  const token = adminTokenFrom(headers, url)
+  return token != null && safeEqual(token, expected)
+}
+
+export function adminCookieHeader(token: string, secure: boolean): string {
+  const parts = [
+    `${ADMIN_COOKIE}=${encodeURIComponent(token)}`,
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',
