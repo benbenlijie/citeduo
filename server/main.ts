@@ -21,7 +21,7 @@ import { adminCookieHeader, cookieHeader, extractToken, isAdminAuthorized, safeE
 import { createApiPipeline } from './api-pipeline'
 import { attachVisitorCookie, captureApiEvent, ensureVisitorIdentity, isTrackablePath, recordCapturedEvent } from './analytics'
 import { demoQuotaEnabled, demoQuotaResponse, registerDemoRequest } from './demo-quota'
-import { demoQuotaResetRoute, demoQuotaRoute } from './routes/demo'
+import { demoQuotaResetRoute, demoQuotaRoute, demoQuotaTestEmailRoute } from './routes/demo'
 import { analyticsPageViewRoute } from './routes/analytics'
 import { usageRoute } from './routes/usage'
 import { renderStatsPage } from './stats-page'
@@ -298,6 +298,7 @@ server = Bun.serve({
       else if (p === '/api/admin/usage') res = usageRoute(url)
       else if (p === '/api/admin/demo-quota' && req.method === 'GET') res = demoQuotaRoute()
       else if (p === '/api/admin/demo-quota/reset' && req.method === 'POST') res = demoQuotaResetRoute()
+      else if (p === '/api/admin/demo-quota/test-email' && req.method === 'POST') res = await demoQuotaTestEmailRoute()
       else if (p.startsWith('/api/')) res = await handleApi(req)
       else res = await serveStatic(p)
 

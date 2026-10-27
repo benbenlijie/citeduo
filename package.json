@@ -14,9 +14,11 @@
     "typecheck:politeness": "bunx tsc --noEmit -p scripts/tsconfig.json"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.2"
+    "@types/bun": "^1.4.2",
+    "@types/nodemailer": "^8.0.2"
   },
   "dependencies": {
+    "nodemailer": "^10.2.1",
     "unpdf": "1.8.1"
   }
 }

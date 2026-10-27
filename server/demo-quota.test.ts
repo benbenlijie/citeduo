@@ -1,6 +1,7 @@
 import { test, expect, beforeEach } from 'bun:test'
 import { openDb } from './db'
 import {
+  buildDemoAlertEmail,
   demoDay,
   demoQuotaResponse,
   getDemoQuotaStatus,
@@ -133,4 +134,25 @@ test('quota responses are friendly 429s for HTML and API clients', async () => {
   expect(html.status).toBe(429)
   expect(html.headers.get('Content-Type')).toContain('text/html')
   expect(await html.text()).toContain('今日 Demo 配额已用完')
+})
+
+test('email alert includes the recipient, counts and reset time', () => {
+  const status = {
+    day: '2026-10-27',
+    requests: 5001,
+    visitors: 300,
+    requestLimit: 5000,
+    visitorLimit: 300,
+    blocked: true,
+    alertedAt: '2026-10-27 08:00:00',
+    resetAt: '2026-10-27T16:00:00.000Z',
+    exceeded: 'requests' as const,
+  }
+  const message = buildDemoAlertEmail(status, 'requests', 'wybisben@qq.com')
+  expect(message).not.toBeNull()
+  expect(message!.to).toBe('wybisben@qq.com')
+  expect(message!.subject).toContain('配额已用完')
+  expect(message!.text).toContain('5001/5000')
+  expect(message!.text).toContain('300/300')
+  expect(buildDemoAlertEmail(status, 'requests', '')).toBeNull()
 })

@@ -243,9 +243,16 @@ DEMO_DAILY_VISITOR_LIMIT=300
 DEMO_DAILY_REQUEST_LIMIT=5000
 DEMO_BLOCK_ON_LIMIT=1
 
-# 报警：generic / slack / discord / feishu；不填则只写 journal
+# 报警：webhook（generic/slack/discord/feishu）+ 邮件；都不填则只写 journal
 DEMO_ALERT_FORMAT=generic
 DEMO_ALERT_WEBHOOK=
+DEMO_ALERT_EMAIL=you@example.com
+SMTP_HOST=smtp.qq.com
+SMTP_PORT=465
+SMTP_SECURE=1
+SMTP_USER=you@qq.com
+SMTP_PASS=你的QQ邮箱SMTP授权码
+SMTP_FROM=you@qq.com
 
 # 默认保留全部功能。若要降低 arXiv 条款或 LLM 账单风险，再换成下面这套：
 # PAPER_CONTENT_MODE=off
@@ -258,7 +265,8 @@ DEMO_ALERT_WEBHOOK=
 - 预算统计 HTML 导航 + `/api/*` 请求，不统计静态资源；同一匿名 Cookie 每天只算一个访客。
 - 请求数或访客数超过上限后，当天后续页面/API 返回 `429`，本地时间次日 00:00 自动重置。
 - 带 `ADMIN_TOKEN` 的请求（Cookie、`?token=` 或 `Authorization: Bearer`）不受预算限制，方便你自己排查。
-- 超限只报警一次；报警内容写入 journal，配置 webhook 后会同时推送。
+- 超限只报警一次；报警内容写入 journal，并可按配置同时发邮件/推送 webhook。
+- QQ 邮箱的 `SMTP_PASS` 是「设置 → 账号 → POP3/SMTP」里生成的授权码，不是 QQ 登录密码。发信前可用 `POST /api/admin/demo-quota/test-email` 测一条。
 - 紧急放行/查看状态（`ADMIN_TOKEN` 从服务器 `.env` 读取，不要贴到公开地方）：
 
 ```bash

@@ -155,6 +155,7 @@ citeduo/
 | `DEMO_DAILY_VISITOR_LIMIT` | `0` | 公开 demo 每日访客上限；`0` = 不限。 |
 | `DEMO_DAILY_REQUEST_LIMIT` | `0` | 公开 demo 每日页面/API 请求上限；`0` = 不限。 |
 | `DEMO_ALERT_WEBHOOK` | – | 超限报警 webhook；不填写 journal。 |
+| `DEMO_ALERT_EMAIL` | – | 超限报警邮件收件人；需同时配置 `SMTP_HOST` / `SMTP_USER` / `SMTP_PASS`。QQ 邮箱填授权码，不是登录密码。 |
 | `RATE_LIMIT_PER_MIN` | `120` | 每 IP 每分钟 `/api/*` 请求数；`0` 关闭。 |
 | `TRUST_PROXY` | 关闭 | 从 `X-Real-IP` / `X-Forwarded-For` 取客户端 IP——仅在你可控的反向代理之后开启。 |
 | `SEMANTIC_SCHOLAR_API_KEY` | – | 不配置则共享 S2 匿名限流。 |
@@ -173,7 +174,7 @@ citeduo/
 
 完整清单（含爬取、翻译等开关）见 [`server/.env.example`](server/.env.example)。
 
-**公开 demo** —— 留空 `ACCESS_TOKEN`，设置 `ADMIN_TOKEN`（看板和管理接口仍要它），再设置 `DEMO_DAILY_VISITOR_LIMIT` / `DEMO_DAILY_REQUEST_LIMIT`。计数覆盖 HTML 导航和 API 请求，不含静态资源；超过任一条后当天后续页面/API 返回 `429`，本地时间次日 00:00 自动恢复。`DEMO_BLOCK_ON_LIMIT=0` 可改成只报警不拦截。报警默认写 journal，配置 `DEMO_ALERT_WEBHOOK` 和 `DEMO_ALERT_FORMAT=generic|slack|discord|feishu` 后会推送。`GET /api/admin/demo-quota` 查看状态，`POST /api/admin/demo-quota/reset` 紧急放行。所有功能仍然对匿名访客开放；`DEMO_PUBLIC=1` 只负责每日预算和看板口令。付费部署请在 provider 账号上设消费上限，并关注配额报警；如果想降低风险，再改成 `PAPER_CONTENT_MODE=off` + 浏览器翻译。
+**公开 demo** —— 留空 `ACCESS_TOKEN`，设置 `ADMIN_TOKEN`（看板和管理接口仍要它），再设置 `DEMO_DAILY_VISITOR_LIMIT` / `DEMO_DAILY_REQUEST_LIMIT`。计数覆盖 HTML 导航和 API 请求，不含静态资源；超过任一条后当天后续页面/API 返回 `429`，本地时间次日 00:00 自动恢复。`DEMO_BLOCK_ON_LIMIT=0` 可改成只报警不拦截。报警默认写 journal；配置 `DEMO_ALERT_WEBHOOK` + `DEMO_ALERT_FORMAT=generic|slack|discord|feishu` 可推送 webhook，配置 `DEMO_ALERT_EMAIL` + SMTP 可发邮件。`POST /api/admin/demo-quota/test-email` 可测试发信。`GET /api/admin/demo-quota` 查看状态，`POST /api/admin/demo-quota/reset` 紧急放行。所有功能仍然对匿名访客开放；`DEMO_PUBLIC=1` 只负责每日预算和看板口令。付费部署请在 provider 账号上设消费上限，并关注配额报警；如果想降低风险，再改成 `PAPER_CONTENT_MODE=off` + 浏览器翻译。
 
 **阅读器与 arXiv 使用条款** —— 应用内阅读器可以显示论文全文，但 arXiv 条款只允许「为你个人使用或研究目的」存储和提供 e-print 内容（[tou.html](https://info.arxiv.org/help/api/tou.html)）。因此 `PAPER_CONTENT_MODE` 默认是 `auto`：仅回环实例解析为 `full`，其他情况解析为 `off`。`off` 时阅读器返回摘要、元数据与原文 arXiv 链接，并且不向磁盘写入任何缓存。当前线上 demo 按你的要求使用 `full`；这是需要自行承担 arXiv 条款风险的设置。更保守的部署应使用 `off`（arXiv 提供 HTML 时，浏览器仍会直接加载全文）；后续可以按论文检测许可，对开放许可的论文单独提供全文。
 

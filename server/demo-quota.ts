@@ -1,6 +1,7 @@
 import type { Database } from 'bun:sqlite'
 import { config } from './config'
 import { db } from './db'
+import { sendMail, type MailMessage } from './mailer'
 
 /**
  * Public-demo budget.
@@ -220,17 +221,45 @@ function alertText(status: DemoQuotaStatus, exceeded: DemoExceeded): string {
   const reset = new Date(status.resetAt).toLocaleString('zh-CN', { hour12: false })
   const visitorLimit = status.visitorLimit > 0 ? status.visitorLimit : '∞'
   const requestLimit = status.requestLimit > 0 ? status.requestLimit : '∞'
-  return `[CiteDuo demo] ${status.day} 的${reason}已超过上限：访客 ${status.visitors}/${visitorLimit}，请求 ${status.requests}/${requestLimit}。当天剩余公开请求将暂停，${reset} 自动重置。`
+  const action = status.blocked ? '当天剩余公开请求将暂停' : '已发出报警（未开启拦截）'
+  return `[CiteDuo demo] ${status.day} 的${reason}已超过上限：访客 ${status.visitors}/${visitorLimit}，请求 ${status.requests}/${requestLimit}。${action}，${reset} 自动重置。`
 }
 
-/** Log always (journald) and optionally push to a Slack/Discord/Feishu webhook. */
-export async function sendDemoAlert(status: DemoQuotaStatus, exceeded: DemoExceeded): Promise<void> {
-  const text = alertText(status, exceeded)
-  console.warn('[demo-quota] ALERT', text)
+/** Pure builder so tests can assert the email without touching SMTP. */
+export function buildDemoAlertEmail(
+  status: DemoQuotaStatus,
+  exceeded: DemoExceeded,
+  to = config.demo.alertEmail,
+): MailMessage | null {
+  if (!to) return null
+  const reason = exceeded === 'visitors' ? '访客数' : '请求量'
+  const reset = new Date(status.resetAt).toLocaleString('zh-CN', { hour12: false })
+  const subject = `[CiteDuo demo] ${status.day} 配额已用完（${reason}）`
+  const text = [
+    alertText(status, exceeded),
+    '',
+    `看板：/stats（部署在 /papers/ 时为 /papers/stats）`,
+    `管理 API：GET /api/admin/demo-quota`,
+    '',
+    '这条邮件每自然日最多发送一次。若需要调整上限，请修改服务器 server/.env 中的 DEMO_DAILY_* 配置并重启。',
+  ].join('\n')
+  return { to, subject, text }
+}
 
+export async function sendDemoEmail(
+  status: DemoQuotaStatus,
+  exceeded: DemoExceeded,
+  to = config.demo.alertEmail,
+): Promise<void> {
+  const message = buildDemoAlertEmail(status, exceeded, to)
+  if (!message) return
+  await sendMail(message)
+  console.log('[demo-quota] email alert sent')
+}
+
+async function sendDemoWebhook(status: DemoQuotaStatus, exceeded: DemoExceeded, text: string): Promise<void> {
   const webhook = config.demo.alertWebhook
   if (!webhook) return
-
   const format = config.demo.alertFormat
   const payload = format === 'slack'
     ? { text }
@@ -248,16 +277,34 @@ export async function sendDemoAlert(status: DemoQuotaStatus, exceeded: DemoExcee
             exceeded,
           }
 
-  try {
-    const res = await fetch(webhook, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(5000),
-    })
-    if (!res.ok) console.warn(`[demo-quota] webhook returned ${res.status}`)
-  } catch (error) {
-    console.warn('[demo-quota] webhook failed:', error instanceof Error ? error.message : String(error))
+  const res = await fetch(webhook, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(5000),
+  })
+  if (!res.ok) throw new Error(`webhook returned ${res.status}`)
+}
+
+/** Log always (journald), then optionally email and/or push a webhook. */
+export async function sendDemoAlert(status: DemoQuotaStatus, exceeded: DemoExceeded): Promise<void> {
+  const text = alertText(status, exceeded)
+  console.warn('[demo-quota] ALERT', text)
+
+  if (config.demo.alertEmail) {
+    try {
+      await sendDemoEmail(status, exceeded)
+    } catch (error) {
+      console.warn('[demo-quota] email alert failed:', error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  if (config.demo.alertWebhook) {
+    try {
+      await sendDemoWebhook(status, exceeded, text)
+    } catch (error) {
+      console.warn('[demo-quota] webhook failed:', error instanceof Error ? error.message : String(error))
+    }
   }
 }
 

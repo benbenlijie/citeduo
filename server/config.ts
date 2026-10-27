@@ -158,5 +158,14 @@ export const config = {
     blockOnLimit: (Bun.env.DEMO_BLOCK_ON_LIMIT ?? '1') !== '0',
     alertWebhook: env.demoAlertWebhook,
     alertFormat: (env.demoAlertFormat ?? 'generic').toLowerCase(),
+    alertEmail: env.demoAlertEmail,
+  },
+  mail: {
+    host: env.smtpHost,
+    port: Number(env.smtpPort ?? 465) || 465,
+    secure: (env.smtpSecure ?? '1') !== '0',
+    user: env.smtpUser,
+    pass: env.smtpPass,
+    from: env.smtpFrom ?? env.smtpUser,
   },
 } as const
