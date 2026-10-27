@@ -34,11 +34,53 @@ export interface OutlineItem {
 
 const STRIP_TAGS = ['script', 'iframe', 'object', 'embed', 'noscript']
 
+/** Resolve a URL against the arXiv HTML directory, or return null when it must
+ *  be left alone (fragment-only links, absolute URLs, other schemes). */
+function absolutize(value: string, base = ARXIV_HTML_DIR): string | null {
+  const raw = value.trim()
+  // `#S1` is an in-document anchor; `mailto:`, `data:` etc. are already absolute.
+  if (!raw || raw.startsWith('#') || raw.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return null
+  try {
+    return new URL(raw, base).toString()
+  } catch {
+    return null
+  }
+}
+
+/** arXiv's figures and stylesheets use paths relative to `/html/`
+ *  (`2401.00001v1/Figures/fig.png`, `/static/browse/...`). Rewrite them to
+ *  absolute URLs instead of relying on a `<base>` element: the reader renders
+ *  the paper as an iframe `srcdoc`, which inherits the page CSP, and the
+ *  deployment proxy sends `base-uri 'self'` — a cross-origin `<base>` is then
+ *  ignored and every figure resolves against our own origin and 404s. */
+function absolutizeUrls(doc: Document): void {
+  const URL_ATTRS = new Set(['src', 'href', 'xlink:href', 'poster'])
+  doc.querySelectorAll('*').forEach((el) => {
+    for (const attr of [...el.attributes]) {
+      const name = attr.name.toLowerCase()
+      if (name === 'srcset') {
+        const rewritten = attr.value
+          .split(',')
+          .map((part) => {
+            const [url, ...descriptor] = part.trim().split(/\s+/)
+            const abs = url ? absolutize(url) : null
+            return abs ? [abs, ...descriptor].join(' ') : part.trim()
+          })
+          .join(', ')
+        if (rewritten !== attr.value) attr.value = rewritten
+      } else if (URL_ATTRS.has(name)) {
+        const abs = absolutize(attr.value)
+        if (abs) attr.value = abs
+      }
+    }
+  })
+}
+
 /**
  * Defensive sanitize for third-party (arXiv) HTML before it is rendered in a
  * sandboxed same-origin iframe: drop active content and pointing handlers, and
- * inject a <base> so relative asset paths resolve against the arXiv html
- * directory (figures use relative paths like `2601.21998v2/fig.png`).
+ * rewrite relative asset paths to absolute arXiv URLs so figures (and the
+ * stylesheet) load no matter what the embedding page's CSP says about `<base>`.
  */
 export function sanitizeArticleHtml(html: string): string {
   const doc = new DOMParser().parseFromString(html, 'text/html')
@@ -70,11 +112,11 @@ export function sanitizeArticleHtml(html: string): string {
     }
   })
 
+  // A <base> would be silently ignored under `base-uri 'self'`; make every URL
+  // absolute instead.
   const head = doc.querySelector('head') ?? doc.documentElement
   head.querySelectorAll('base').forEach((el) => el.remove())
-  const base = doc.createElement('base')
-  base.setAttribute('href', ARXIV_HTML_DIR)
-  head.insertBefore(base, head.firstChild)
+  absolutizeUrls(doc)
 
   return `<!DOCTYPE html>${doc.documentElement.outerHTML}`
 }

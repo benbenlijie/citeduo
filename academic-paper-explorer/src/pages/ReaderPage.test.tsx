@@ -81,7 +81,9 @@ describe('ReaderPage', () => {
     renderReader()
     const frame = await screen.findByTestId('reader-frame')
     expect(frame.getAttribute('srcdoc')).toContain('hello world')
-    expect(frame.getAttribute('srcdoc')).toContain('<base href="https://arxiv.org/html/">')
+    // No <base>: the deployment CSP (`base-uri 'self'`) would ignore it, so the
+    // sanitizer absolutizes URLs instead.
+    expect(frame.getAttribute('srcdoc')).not.toContain('<base')
     expect(screen.getByRole('button', { name: 'Introduction' })).toBeInTheDocument()
   })
 

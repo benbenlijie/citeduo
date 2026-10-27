@@ -35,8 +35,24 @@ describe('sanitizeArticleHtml', () => {
     <p>world</p>
   </body></html>`
 
-  it('injects a base href pointing at the arxiv html directory', () => {
-    expect(sanitizeArticleHtml(html)).toContain('<base href="https://arxiv.org/html/">')
+  it('absolutizes relative figures against the arxiv html directory', () => {
+    const withFigures = `<html><body>
+      <img src="2401.00001v1/Figures/fig.png">
+      <img src="https://cdn.example/x.png">
+      <img src="#inline">
+      <a href="#S1">section</a>
+    </body></html>`
+    const out = sanitizeArticleHtml(withFigures)
+    expect(out).toContain('src="https://arxiv.org/html/2401.00001v1/Figures/fig.png"')
+    expect(out).toContain('src="https://cdn.example/x.png"')
+    expect(out).toContain('src="#inline"')
+    expect(out).toContain('href="#S1"')
+  })
+
+  it('never injects a <base>: the deployment CSP (base-uri self) ignores it', () => {
+    const out = sanitizeArticleHtml(html)
+    expect(out).not.toContain('<base')
+    expect(out).toContain('href="https://arxiv.org/static/arxiv.css"')
   })
 
   it('converts SVG <object> figures into <img> and drops other objects', () => {
@@ -61,7 +77,7 @@ describe('sanitizeArticleHtml', () => {
 
   it('keeps the stylesheet and body text', () => {
     const out = sanitizeArticleHtml(html)
-    expect(out).toContain('/static/arxiv.css')
+    expect(out).toContain('https://arxiv.org/static/arxiv.css')
     expect(out).toContain('hello')
     expect(out).toContain('world')
   })

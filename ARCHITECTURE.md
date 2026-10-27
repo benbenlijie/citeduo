@@ -282,8 +282,12 @@ for `kind: "openai"` entries, advancing on failure. The cache key is
 PDF: structured paragraphs make translation and AI annotation tractable, and
 arxiv.org serves it with `access-control-allow-origin: *`, so no proxy is needed.
 `lib/article.ts` sanitizes third-party HTML (drops `script`/`iframe`/`object`/
-`embed`/`noscript`, strips `on*` handlers and `javascript:` URLs, injects
-`<base href="https://arxiv.org/">`) and extracts an outline. LaTeXML puts the
+`embed`/`noscript`, strips `on*` handlers and `javascript:` URLs, and rewrites
+relative asset paths to absolute `https://arxiv.org/...` URLs) and extracts an
+outline. It does *not* inject a `<base>`: the iframe is a `srcdoc` document that
+inherits the page CSP, this deployment sends `base-uri 'self'`, and a
+cross-origin `<base>` is ignored there — figures would resolve against our own
+origin and 404. LaTeXML puts the
 anchor id on the enclosing `<section>`, not the heading, so `extractOutline`
 handles both. The sanitized document is rendered in an
 `<iframe sandbox="allow-same-origin">` (no `allow-scripts`), which blocks script
