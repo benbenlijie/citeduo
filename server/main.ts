@@ -277,18 +277,7 @@ server = Bun.serve({
         if (!token || !safeEqual(token, ACCESS_TOKEN)) return unauthorized()
       }
 
-      // The operator can always get in with the admin token; anonymous demo
-      // visitors cannot spend the server-side LLM budget.
       const adminBypass = ADMIN_EXPECTED != null && isAdminAuthorized(req.headers, url, ADMIN_EXPECTED)
-      if (config.demo.public && !adminBypass && (p === '/api/translate' || p.startsWith('/api/ai/'))) {
-        return json({
-          error: {
-            code: 'DEMO_FEATURE_DISABLED',
-            message: '公开 demo 暂不提供服务器端 AI / 翻译；请使用浏览器翻译，或在本地部署使用完整功能。',
-          },
-        }, 403)
-      }
-
       const tracked = isTrackablePath(p)
       // Internal retrieval calls carry the internal token, not a public cookie;
       // they should not burn the demo budget while an admin uses the assistant.

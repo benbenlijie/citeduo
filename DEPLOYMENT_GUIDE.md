@@ -247,10 +247,10 @@ DEMO_BLOCK_ON_LIMIT=1
 DEMO_ALERT_FORMAT=generic
 DEMO_ALERT_WEBHOOK=
 
-# 公开实例：关闭服务端全文和付费 LLM，浏览器翻译仍可用
-PAPER_CONTENT_MODE=off
-LLM_PROVIDERS=[{"name":"browser","kind":"browser"}]
-OPENCODE_ENABLED=0
+# 默认保留全部功能。若要降低 arXiv 条款或 LLM 账单风险，再换成下面这套：
+# PAPER_CONTENT_MODE=off
+# LLM_PROVIDERS=[{"name":"browser","kind":"browser"}]
+# OPENCODE_ENABLED=0
 ```
 
 口径：
@@ -266,7 +266,7 @@ curl -H "Authorization: Bearer $ADMIN_TOKEN" https://watchdeep.net/papers/api/ad
 curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://watchdeep.net/papers/api/admin/demo-quota/reset
 ```
 
-公开 demo 不要把服务端 LLM key 暴露给匿名用户；如果确实要保留 AI/翻译，请换一把有限额、可随时吊销的 key，并考虑把 `DEMO_PUBLIC=1` 的服务端 AI/翻译继续关掉（当前代码会直接拒绝匿名访问 `/api/translate` 和 `/api/ai/*`）。
+公开 demo 保留全部功能时，匿名用户可以直接调用服务端 AI/翻译。务必在 LLM provider 后台设置消费上限、使用可随时吊销的 key，并定期轮换；`DEMO_PUBLIC=1` 只负责每日预算和看板口令，不会拒绝 `/api/translate` 或 `/api/ai/*`。`PAPER_CONTENT_MODE=full` 还意味着服务器会缓存并向公众提供 arXiv 全文，需自行确认符合 arXiv 使用条款；更保守的部署用 `off`，浏览器仍会直接加载 arXiv 提供的 HTML。
 
 ## 6. 子路径挂载（例如 https://watchdeep.net/papers/）
 

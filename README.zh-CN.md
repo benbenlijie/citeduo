@@ -151,7 +151,7 @@ citeduo/
 | `HOST` | `127.0.0.1` | 只有在你自己加了 TLS/反代时才改成 `0.0.0.0`。 |
 | `ACCESS_TOKEN` | – | 设置后整个应用需要口令（`?token=…` 会种下 cookie）。公开 demo 留空。 |
 | `ADMIN_TOKEN` | – | 看板和管理接口的独立口令；公开 demo 必填。 |
-| `DEMO_PUBLIC` | `0` | `1` 开启公开 demo 保护：匿名用户不能用服务端 AI/翻译，并启用每日预算。 |
+| `DEMO_PUBLIC` | `0` | `1` 开启公开 demo：要求 `ADMIN_TOKEN` 保护看板，并启用每日预算；不关闭应用功能。 |
 | `DEMO_DAILY_VISITOR_LIMIT` | `0` | 公开 demo 每日访客上限；`0` = 不限。 |
 | `DEMO_DAILY_REQUEST_LIMIT` | `0` | 公开 demo 每日页面/API 请求上限；`0` = 不限。 |
 | `DEMO_ALERT_WEBHOOK` | – | 超限报警 webhook；不填写 journal。 |
@@ -173,9 +173,9 @@ citeduo/
 
 完整清单（含爬取、翻译等开关）见 [`server/.env.example`](server/.env.example)。
 
-**公开 demo** —— 留空 `ACCESS_TOKEN`，设置 `ADMIN_TOKEN`（看板和管理接口仍要它），再设置 `DEMO_DAILY_VISITOR_LIMIT` / `DEMO_DAILY_REQUEST_LIMIT`。计数覆盖 HTML 导航和 API 请求，不含静态资源；超过任一条后当天后续页面/API 返回 `429`，本地时间次日 00:00 自动恢复。`DEMO_BLOCK_ON_LIMIT=0` 可改成只报警不拦截。报警默认写 journal，配置 `DEMO_ALERT_WEBHOOK` 和 `DEMO_ALERT_FORMAT=generic|slack|discord|feishu` 后会推送。`GET /api/admin/demo-quota` 查看状态，`POST /api/admin/demo-quota/reset` 紧急放行。公开实例还应设置 `PAPER_CONTENT_MODE=off`。`DEMO_PUBLIC=1` 已经会自动拒绝匿名访问 `/api/translate` 和 `/api/ai/*`，所以服务端 key 只有管理员能用；如果希望公开进程里完全不保留付费 key，再设置 `LLM_PROVIDERS=[{"name":"browser","kind":"browser"}]` 和 `OPENCODE_ENABLED=0`。
+**公开 demo** —— 留空 `ACCESS_TOKEN`，设置 `ADMIN_TOKEN`（看板和管理接口仍要它），再设置 `DEMO_DAILY_VISITOR_LIMIT` / `DEMO_DAILY_REQUEST_LIMIT`。计数覆盖 HTML 导航和 API 请求，不含静态资源；超过任一条后当天后续页面/API 返回 `429`，本地时间次日 00:00 自动恢复。`DEMO_BLOCK_ON_LIMIT=0` 可改成只报警不拦截。报警默认写 journal，配置 `DEMO_ALERT_WEBHOOK` 和 `DEMO_ALERT_FORMAT=generic|slack|discord|feishu` 后会推送。`GET /api/admin/demo-quota` 查看状态，`POST /api/admin/demo-quota/reset` 紧急放行。所有功能仍然对匿名访客开放；`DEMO_PUBLIC=1` 只负责每日预算和看板口令。付费部署请在 provider 账号上设消费上限，并关注配额报警；如果想降低风险，再改成 `PAPER_CONTENT_MODE=off` + 浏览器翻译。
 
-**阅读器与 arXiv 使用条款** —— 应用内阅读器可以显示论文全文，但 arXiv 条款只允许「为你个人使用或研究目的」存储和提供 e-print 内容（[tou.html](https://info.arxiv.org/help/api/tou.html)）。因此 `PAPER_CONTENT_MODE` 默认是 `auto`：仅回环实例解析为 `full`，其他情况解析为 `off`。`off` 时阅读器返回摘要、元数据与原文 arXiv 链接，并且不向磁盘写入任何缓存。公开 demo 应保持 `off`；后续可以按论文检测许可，对开放许可的论文单独提供全文。
+**阅读器与 arXiv 使用条款** —— 应用内阅读器可以显示论文全文，但 arXiv 条款只允许「为你个人使用或研究目的」存储和提供 e-print 内容（[tou.html](https://info.arxiv.org/help/api/tou.html)）。因此 `PAPER_CONTENT_MODE` 默认是 `auto`：仅回环实例解析为 `full`，其他情况解析为 `off`。`off` 时阅读器返回摘要、元数据与原文 arXiv 链接，并且不向磁盘写入任何缓存。当前线上 demo 按你的要求使用 `full`；这是需要自行承担 arXiv 条款风险的设置。更保守的部署应使用 `off`（arXiv 提供 HTML 时，浏览器仍会直接加载全文）；后续可以按论文检测许可，对开放许可的论文单独提供全文。
 
 **LLM / 翻译 provider**——按顺序降级；`kind: "browser"` 不需要 key，完全在访客浏览器里执行：
 
@@ -229,7 +229,7 @@ CI 在每次 push 与 PR 上跑的就是这些。提交信息约定与开发流�
 
 `bun run deploy` 会构建前端、把仓库同步到 `scripts/deploy.sh` 里配置的主机，然后重启服务并做健康检查。仓库内的指南覆盖了 nginx + TLS 的子路径部署、访问口令与 systemd 常驻——见 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)。
 
-> [在线 Demo](https://watchdeep.net/papers/) 不设应用口令，但有每日访客/请求预算；超限后当天返回 `429`，次日自动恢复。匿名用户不能使用服务端 AI/翻译，浏览器翻译仍可用；它只用于试用，不适合存放你的数据。
+> [在线 Demo](https://watchdeep.net/papers/) 不设应用口令，保留完整功能（全文阅读、服务端翻译、AI 助手），但有每日访客/请求预算；超限后当天返回 `429`，次日自动恢复。它只用于试用，不适合存放你的数据。
 
 ## 路线图
 
