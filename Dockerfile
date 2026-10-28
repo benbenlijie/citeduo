@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---- frontend: React 18 + Vite, built with the pnpm version the repo pins ----
-FROM node:22-slim AS web
+FROM node:25-slim AS web
 WORKDIR /build
 RUN corepack enable
 COPY academic-paper-explorer/package.json academic-paper-explorer/pnpm-lock.yaml ./
