@@ -2,6 +2,12 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 
 export const AUTH_COOKIE = 'cp_token'
 export const ADMIN_COOKIE = 'cp_admin'
+/**
+ * The AI assistant has its own cookie so a public instance can keep the reader
+ * open while only token holders can spend LLM calls. Deliberately separate from
+ * AUTH_COOKIE: sharing one cookie would let a leaked app token unlock the agent.
+ */
+export const AI_COOKIE = 'cp_ai'
 
 export function bearerToken(authorization: string | null): string | null {
   if (!authorization) return null
@@ -48,6 +54,34 @@ export function isAuthorized(headers: Headers, url: URL, expected: string | unde
 }
 
 /**
+ * Token sources for the AI assistant, strongest first. `x-ai-token` is there so
+ * an operator can hold the app token and the AI token separately without one
+ * shadowing the other. The app cookie is a fallback only: it is accepted when
+ * the configured AI token is the same value, which keeps single-token
+ * deployments working.
+ *
+ * Deliberately no query-string source: URLs end up in proxy access logs,
+ * browser history and shell history. The browser logs in through the POST form
+ * at /ai-login; API clients send a header.
+ */
+export function aiTokenFrom(headers: Headers): ExtractedToken {
+  const header = headers.get('x-ai-token') ?? bearerToken(headers.get('authorization'))
+  if (header) return { token: header, source: 'bearer', fromQuery: false }
+  const aiCookie = cookieValue(headers.get('cookie'), AI_COOKIE)
+  if (aiCookie) return { token: aiCookie, source: 'cookie', fromQuery: false }
+  const appCookie = cookieValue(headers.get('cookie'), AUTH_COOKIE)
+  if (appCookie) return { token: appCookie, source: 'cookie', fromQuery: false }
+  return { token: null, source: 'none', fromQuery: false }
+}
+
+/** Fail closed: unlike isAuthorized, a missing AI token never opens the gate. */
+export function isAiAuthorized(headers: Headers, expected: string | undefined): boolean {
+  if (!expected) return false
+  const { token } = aiTokenFrom(headers)
+  return token != null && safeEqual(token, expected)
+}
+
+/**
  * Best-effort client identity, used to key the rate limiter. Only meaningful
  * when the app sits behind a proxy that overwrites these headers (our nginx
  * config sets both to $remote_addr).
@@ -77,6 +111,19 @@ export function clientIpFrom(headers: Headers, trustProxy: boolean, fallback: st
 
 export function cookieHeader(token: string, secure: boolean): string {  const parts = [
     `${AUTH_COOKIE}=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    'Max-Age=2592000',
+  ]
+  if (secure) parts.push('Secure')
+  return parts.join('; ')
+}
+
+/** Cookie written by the POST /api/ai/login form; see ai-login.ts. */
+export function aiCookieHeader(token: string, secure: boolean): string {
+  const parts = [
+    `${AI_COOKIE}=${encodeURIComponent(token)}`,
     'Path=/',
     'HttpOnly',
     'SameSite=Lax',

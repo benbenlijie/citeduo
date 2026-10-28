@@ -26,6 +26,16 @@ test('createSession posts to /session and returns the id', async () => {
   expect(init?.signal).toBeInstanceOf(AbortSignal)
 })
 
+test('client sends HTTP Basic auth when a server password is configured', async () => {
+  let authorization = ''
+  globalThis.fetch = (async (_u: string, i: RequestInit) => {
+    authorization = new Headers(i.headers).get('authorization') ?? ''
+    return new Response(JSON.stringify({ id: 'sess-1' }), { status: 200 })
+  }) as unknown as typeof fetch
+  await createOpencodeClient('http://127.0.0.1:4096', 1000, 'secret').createSession('t')
+  expect(authorization).toBe(`Basic ${Buffer.from('opencode:secret').toString('base64')}`)
+})
+
 test('promptAsync posts the agent, model and text part', async () => {
   let body: any
   globalThis.fetch = (async (_u: string, init: RequestInit) => {

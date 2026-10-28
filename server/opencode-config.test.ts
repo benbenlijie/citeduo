@@ -16,8 +16,11 @@ test('config injects the provider and a locked-down agent', () => {
   expect(cfg.provider.mtcode.options.apiKey).toBe('sk-secret')
   expect(cfg.agent[OPENCODE_AGENT].steps).toBe(8)
   expect(cfg.agent[OPENCODE_AGENT].model).toBe('mtcode/deepseek-flash')
-  expect(cfg.agent[OPENCODE_AGENT].permission.bash).toBe('deny')
-  expect(cfg.agent[OPENCODE_AGENT].permission.webfetch).toBe('deny')
+  expect(cfg.agent[OPENCODE_AGENT].permission).toEqual({
+    '*': 'deny',
+    paper_search: 'allow',
+    paper_section: 'allow',
+  })
 })
 
 test('tool sources are one default-exported file per tool name', () => {

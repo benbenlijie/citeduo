@@ -188,18 +188,24 @@ The complete list, including the crawl and translation knobs, is in [`server/.en
 LLM_PROVIDERS=[{"name":"local","kind":"openai","baseUrl":"https://<host>/v1","apiKey":"sk-...","model":"..."},{"name":"browser","kind":"browser"}]
 ```
 
-**AI assistant** — needs the `opencode` binary on the host; the server starts `opencode serve` on demand and reuses the first `openai` provider above:
+**AI assistant** — token-gated by default; the rest of the site can stay public. Local spawn needs the `opencode` binary; the recommended setup is the isolated container in `docker-compose.opencode.yml`:
 
 ```env
+AI_ACCESS_TOKEN=a-long-random-secret  # required; falls back to ACCESS_TOKEN; neither => /api/ai/* 503
+# Open /ai-login (e.g. https://your-domain/ai-login) and enter the token; it is stored in the cp_ai cookie.
+# The token is submitted as a POST body, never in the URL or nginx access log.
 OPENCODE_ENABLED=1            # 0 disables the assistant
-OPENCODE_BIN=opencode         # absolute path if it is not on PATH
+OPENCODE_BIN=opencode         # absolute path if it is not on PATH (local spawn only)
 OPENCODE_PORT=4096
+# Option B: connect to the isolated container; must match OPENCODE_SERVER_PASSWORD there
+# OPENCODE_BASE_URL=http://127.0.0.1:4096
+# OPENCODE_SERVER_PASSWORD=another-long-random-secret
 AI_MAX_STEPS=8                # tool steps per turn
 PAPER_CONTENT_TTL_HOURS=168   # paper-text cache TTL
 INTERNAL_TOKEN=               # shared secret for the internal retrieval API; random per boot if unset
 ```
 
-Without an `openai` provider or with opencode unavailable, `/api/ai/*` returns `503` and translation is unaffected.
+Without `AI_ACCESS_TOKEN` (and no `ACCESS_TOKEN`), without an `openai` provider, or with opencode unavailable, `/api/ai/*` returns `503` and translation is unaffected. Token-bearing API calls may also use `Authorization: Bearer <token>`.
 
 ## API
 

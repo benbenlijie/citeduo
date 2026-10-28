@@ -1,0 +1,54 @@
+# CiteDuo's opencode sidecar, isolated from the web app.
+#
+#   cp deploy/opencode.env.example deploy/opencode.env
+#   chmod 600 deploy/opencode.env
+#   docker compose -f docker-compose.opencode.yml up -d --build
+#
+# The app connects with OPENCODE_BASE_URL=http://127.0.0.1:4096 and the same
+# OPENCODE_SERVER_PASSWORD. Host networking is deliberate: the app binds
+# 127.0.0.1:8787, and the agent tools call it back on loopback. Filesystem,
+# UID, capabilities and resources are still isolated by the container.
+name: citeduo-opencode
+
+services:
+  opencode:
+    build:
+      context: .
+      dockerfile: docker/opencode/Dockerfile
+    image: citeduo-opencode:1.18.35
+    container_name: citeduo-opencode
+    restart: on-failure:3
+    network_mode: host
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    volumes:
+      - opencode-runtime:/runtime
+    env_file:
+      - ./deploy/opencode.env
+    environment:
+      OPENCODE_RUNTIME_DIR: /runtime
+      OPENCODE_PORT: "4096"
+      PAPER_API_BASE: http://127.0.0.1:8787/api
+      AI_MAX_STEPS: "8"
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    # A real chat peaked around 630MB; 640m was OOM-killed. Keep the cgroup cap
+    # below the host's spare memory (4GB host recommended), and let the
+    # on-failure policy avoid a crash loop.
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 0.5
+    stop_grace_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  opencode-runtime:

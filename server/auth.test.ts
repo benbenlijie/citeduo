@@ -2,12 +2,15 @@ import { test, expect } from 'bun:test'
 import {
   adminCookieHeader,
   adminTokenFrom,
+  aiCookieHeader,
+  aiTokenFrom,
   bearerToken,
   clientIpFrom,
   cookieHeader,
   cookieValue,
   extractToken,
   isAdminAuthorized,
+  isAiAuthorized,
   isAuthorized,
   safeEqual,
 } from './auth'
@@ -40,6 +43,34 @@ test('isAuthorized: open when no token configured, else constant-time match', ()
   expect(isAuthorized(new Headers(), new URL('https://x/'), undefined)).toBe(true)
   expect(isAuthorized(new Headers({ authorization: 'Bearer good' }), new URL('https://x/'), 'good')).toBe(true)
   expect(isAuthorized(new Headers({ authorization: 'Bearer bad' }), new URL('https://x/'), 'good')).toBe(false)
+})
+
+test('aiTokenFrom prefers x-ai-token/Bearer, then the AI cookie, then the app cookie', () => {
+  const bearer = new Headers({ 'x-ai-token': 't1', cookie: 'cp_ai=t2' })
+  expect(aiTokenFrom(bearer)).toMatchObject({ token: 't1', source: 'bearer' })
+
+  const cookie = new Headers({ cookie: 'cp_ai=t4' })
+  expect(aiTokenFrom(cookie)).toMatchObject({ token: 't4', source: 'cookie' })
+
+  const appCookie = new Headers({ cookie: 'cp_token=t5' })
+  expect(aiTokenFrom(appCookie)).toMatchObject({ token: 't5', source: 'cookie' })
+
+  // No query-string source: a secret in a URL ends up in proxy logs.
+  expect(aiTokenFrom(new Headers())).toMatchObject({ token: null, source: 'none' })
+})
+
+test('isAiAuthorized fails closed when no AI token is configured', () => {
+  expect(isAiAuthorized(new Headers(), undefined)).toBe(false)
+  expect(isAiAuthorized(new Headers({ authorization: 'Bearer good' }), 'good')).toBe(true)
+  expect(isAiAuthorized(new Headers({ authorization: 'Bearer bad' }), 'good')).toBe(false)
+  expect(isAiAuthorized(new Headers({ 'x-ai-token': 'good' }), 'good')).toBe(true)
+  expect(isAiAuthorized(new Headers({ cookie: 'cp_ai=good' }), 'good')).toBe(true)
+})
+
+test('aiCookieHeader uses the dedicated AI cookie', () => {
+  expect(aiCookieHeader('tok', true)).toContain('cp_ai=tok')
+  expect(aiCookieHeader('tok', true)).toContain('Secure')
+  expect(aiCookieHeader('tok', true)).not.toContain('cp_token')
 })
 
 test('safeEqual compares without throwing on length mismatch', () => {

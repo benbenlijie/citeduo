@@ -122,9 +122,17 @@ export const config = {
   },
   ai: {
     enabled: (Bun.env.OPENCODE_ENABLED ?? '1') !== '0',
+    /**
+     * Required for /api/ai/*. Falls back to ACCESS_TOKEN when unset; when both
+     * are unset the assistant is disabled rather than public. A separate token
+     * lets a public reading instance keep the agent behind a password.
+     */
+    accessToken: env.aiAccessToken,
     // When set, do NOT spawn opencode locally; connect to this base URL instead
-    // (e.g. a locally-run opencode exposed over a reverse SSH tunnel).
+    // (e.g. an opencode container on the same host).
     externalBaseUrl: Bun.env.OPENCODE_BASE_URL?.replace(/\/+$/, '') ?? '',
+    /** HTTP Basic auth password for `opencode serve` (OPENCODE_SERVER_PASSWORD). */
+    serverPassword: Bun.env.OPENCODE_SERVER_PASSWORD?.trim() || '',
     bin: Bun.env.OPENCODE_BIN ?? 'opencode',
     port: num(Bun.env.OPENCODE_PORT, 4096),
     maxSteps: num(Bun.env.AI_MAX_STEPS, 8),

@@ -31,6 +31,8 @@ can, keep you updated on the fix, and credit you in the advisory if you would li
 This application can hold live credentials:
 
 - `ACCESS_TOKEN` — the access token for a publicly exposed instance
+- `AI_ACCESS_TOKEN` — the separate token that unlocks `/api/ai/*`; when unset, AI falls back to `ACCESS_TOKEN`, and when both are unset AI is disabled. Browsers log in at `/ai-login` (POST body → `cp_ai` HttpOnly cookie); the token is never accepted from a query string.
+- `OPENCODE_SERVER_PASSWORD` — HTTP Basic auth for the external `opencode serve` API
 - `SEMANTIC_SCHOLAR_API_KEY` and `OPENALEX_API_KEY` — third-party API keys
 - `LLM_PROVIDERS` — OpenAI-compatible API keys for translation / the AI assistant
 - `INTERNAL_TOKEN` — the shared secret used by the AI agent's retrieval routes
@@ -65,9 +67,10 @@ and copies may sit in forks, caches or CI logs. Rotate first, clean up second.
    - OpenAlex — <https://openalex.org/rest-api>
    - An OpenAI-compatible provider (the `apiKey` inside `LLM_PROVIDERS`) — that
      provider's dashboard
-   - `ACCESS_TOKEN` and `INTERNAL_TOKEN` are registered nowhere: replacing the value in
+   - `ACCESS_TOKEN`, `AI_ACCESS_TOKEN`, `OPENCODE_SERVER_PASSWORD` and `INTERNAL_TOKEN` are registered nowhere: replacing the value in
      `server/.env` and restarting *is* the rotation. Changing `ACCESS_TOKEN` signs out
-     every existing cookie, which is the only way to invalidate one.
+     every existing cookie; changing `AI_ACCESS_TOKEN` signs out every `cp_ai` cookie,
+     which is the only way to invalidate one.
 2. **Update `server/.env`** (git-ignored) and restart the server.
 3. **Check whether it reached the repository**, not just the working tree:
    ```bash
@@ -94,6 +97,8 @@ re-read `server/.env.example` after adding a provider to see what the new key ca
 - Authentication / authorization bypass of the optional access-token gate
   (`server/auth.ts`, `ACCESS_TOKEN`), including token extraction, the constant-time
   comparison, and the `?token=` → cookie flow.
+- Bypass of the separate AI token gate (`AI_ACCESS_TOKEN`, `cp_ai` cookie) or the
+  `opencode` HTTP Basic auth (`OPENCODE_SERVER_PASSWORD`).
 - SSRF or unsafe outbound fetches through the paper/reader paths — for example arXiv
   HTML/PDF retrieval, OpenAlex title fallback, or any route where a user-controlled
   value can influence the fetched URL or host.

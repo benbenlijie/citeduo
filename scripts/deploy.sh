@@ -60,6 +60,8 @@ rsync -az --delete \
   --exclude 'academic-paper-explorer/node_modules' \
   --exclude 'data' \
   --exclude 'server/.env' \
+  --exclude 'server/.env.bak.*' \
+  --exclude 'deploy/opencode.env' \
   --exclude 'sub_tasks' \
   --exclude 'user_input_files' \
   --exclude 'docs' \

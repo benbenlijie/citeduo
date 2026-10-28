@@ -91,7 +91,7 @@ Hard constraints that shape every decision below:
 | `jobs.ts` | In-process job queue, cache lookup, cache write, boot recovery. |
 | `llm.ts` | Configurable LLM providers (`LLM_PROVIDERS`), `chat` against OpenAI-compatible endpoints. |
 | `opencode.ts` | `OpencodeManager`: spawns/supervises `opencode serve`, writes the isolated runtime dir, health check + stop; `createOpencodeClient` for the opencode HTTP API. |
-| `opencode-config.ts` | Builds `opencode.json` (provider + `paper-tutor` agent, denied built-in tools, system prompt) and the `paper_search`/`paper_section` tool sources. |
+| `opencode-config.ts` | Builds `opencode.json` (provider + `paper-tutor` agent, allowlist permission, system prompt) and the `paper_search`/`paper_section` tool sources. |
 | `paper-content.ts` | Fetches arXiv HTML, extracts sections into `paper_content`/`paper_sections`, TTL cache; abstract fallback. |
 | `paper-search.ts` | `rankSections`: lexical ranking of paragraphs for `paper_search`. |
 | `ai-events.ts` | Pure normalization of opencode SSE events → client `{ type: delta\|tool\|done\|error }` events. |
@@ -356,24 +356,40 @@ Reading questions are answered by a multi-turn agent that retrieves the paper's
 own text **on demand** instead of answering from the model's memory.
 
 - **Manager (`server/opencode.ts`)** — on boot, when `config.ai.enabled` (env
-  `OPENCODE_ENABLED != 0`) and an `openai` provider exists,
-  `OpencodeManager.start()` writes an isolated runtime dir
+  `OPENCODE_ENABLED != 0`), an `openai` provider exists, and an AI access token
+  is configured, `OpencodeManager.start()` writes an isolated runtime dir
   `data/opencode-runtime/` (gitignored): `opencode.json` from
   `opencode-config.ts` plus `.opencode/tools/paper_search.ts` and
   `paper_section.ts` (one default export per file, so the tool name is the
-  filename). It spawns `opencode serve --hostname 127.0.0.1 --port
+  filename). It spawns `opencode serve --pure --hostname 127.0.0.1 --port
   config.ai.port` with `cwd` = runtime dir and
   `XDG_CONFIG_HOME`/`XDG_DATA_HOME`/`XDG_CACHE_HOME`/`XDG_STATE_HOME` all inside
   it — the spike showed the user's global agents/models/plugins leak in
   otherwise. `PAPER_API_BASE` + `PAPER_INTERNAL_TOKEN` are injected into the
-  tool env. `GET /global/health` is polled up to 15s; the process is killed and
-  the dir removed on SIGINT/SIGTERM; `isHealthy()` reflects readiness.
+  tool env. The child no longer inherits `process.env`: only PATH/locale/TMPDIR/
+  TLS/proxy variables are passed, so `ACCESS_TOKEN`, `SMTP_PASS`, and
+  `LLM_PROVIDERS` are not readable by the agent. A random
+  `OPENCODE_SERVER_PASSWORD` is generated per boot for local spawn and sent as
+  HTTP Basic auth; external mode requires the operator to set it. `GET
+  /global/health` is polled up to 15s; the process is killed and the dir removed
+  on SIGINT/SIGTERM; `isHealthy()` reflects readiness.
 - **Config (`opencode-config.ts`)** — injects the first `openai` `LLM_PROVIDERS`
   entry as an `@ai-sdk/openai-compatible` provider, and one agent `paper-tutor`
   with the model, `steps = AI_MAX_STEPS`, a system prompt that orders retrieval
-  before answering, and `permission: deny` for
-  `read/edit/glob/grep/list/bash/task/webfetch/websearch/lsp/skill/external_directory`
-  (only our custom tools remain, so there is no shell/file surface).
+  before answering, and an **allowlist** permission block (`'*': 'deny'`,
+  `paper_search: allow`, `paper_section: allow`). A tool added by a future
+  opencode release is denied by default; only our two retrieval tools remain, so
+  there is no shell/file surface. `update: disable` and `share: disabled` keep
+  the agent pinned and session data local.
+- **AI access gate (`main.ts`, `auth.ts`, `ai-login.ts`)** — `/api/ai/*` is
+  gated separately from the reader. `AI_ACCESS_TOKEN` wins over `ACCESS_TOKEN`;
+  if neither is set, AI endpoints return `503` and no agent is spawned (fail
+  closed). A browser opens `/ai-login`, POSTs the token to `/api/ai/login`, and
+  receives the dedicated `cp_ai` HttpOnly cookie (30 days); the token is never
+  placed in a URL, so it does not leak into nginx access logs or browser
+  history. API callers may use `Authorization: Bearer` or `x-ai-token`. A
+  missing/wrong token returns `401`. `AI_ACCESS_TOKEN` is deliberately separate
+  from `ACCESS_TOKEN` so a leaked app token cannot spend LLM calls.
 - **Retrieval (`paper-content.ts` + `routes/paper.ts`)** — `paper-content.ts`
   fetches `arxiv.org/html/{id}`, extracts title/sections/paragraphs with Bun's
   `HTMLRewriter`, and caches them in `paper_content`/`paper_sections` with a
@@ -388,7 +404,10 @@ own text **on demand** instead of answering from the model's memory.
   from opencode's env.
 - **Sessions (`ai-sessions.ts`)** — `POST /api/ai/session` maps an `arxivId` to
   a persistent opencode session in `ai_sessions` (created once, reused); opencode
-  owns the message history.
+  owns the message history. The key is the paper, not the visitor: everyone
+  holding the same AI token shares one transcript per paper. If the token is
+  shared more widely, add a visitor/subject column before treating sessions as
+  private.
 - **Chat + streaming (`routes/ai.ts`, `ai-events.ts`)** — `POST /api/ai/chat`
   forwards `prompt_async(agent=paper-tutor, model, parts=[excerpt? + question +
   target language])` (the model must be in the body — the spike confirmed the
@@ -407,8 +426,15 @@ own text **on demand** instead of answering from the model's memory.
   the agent to ignore instructions found inside retrieved content
   (prompt-injection defense) and to answer only from retrieved text. The provider
   key lives only in the `0600` runtime config (never in the DB or sent to the
-  client), `steps` caps cost, and unhealthy/missing opencode makes `/api/ai/*`
-  return `503` while translation is unaffected.
+  client), `steps` caps cost, message/excerpt lengths are capped, and
+  unhealthy/missing opencode makes `/api/ai/*` return `503` while translation is
+  unaffected. The recommended deployment puts opencode in a separate container
+  (`docker-compose.opencode.yml`: non-root, read-only rootfs, `cap_drop: ALL`,
+  `no-new-privileges`, memory/pids limits, only a runtime volume) and connects
+  over loopback with `OPENCODE_BASE_URL` + `OPENCODE_SERVER_PASSWORD`. This is
+  containment, not a kernel sandbox: the container still has outbound network
+  and can reach the app's loopback API with `PAPER_INTERNAL_TOKEN`. A stricter
+  phase 2 would add an egress allowlist and per-visitor session ownership.
 
 ### 14. Reading queue and progress
 

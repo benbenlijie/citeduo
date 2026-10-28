@@ -184,18 +184,23 @@ citeduo/
 LLM_PROVIDERS=[{"name":"local","kind":"openai","baseUrl":"https://<host>/v1","apiKey":"sk-...","model":"..."},{"name":"browser","kind":"browser"}]
 ```
 
-**AI 助手**——需要主机上装有 `opencode` 二进制；服务端会按需拉起 `opencode serve`，并复用上面第一个 `openai` provider：
+**AI 助手**——默认只对带 AI 口令的访问开放，站点其余部分仍可公开；本地 spawn 需要主机装有 `opencode` 二进制，推荐用独立容器（见 `docker-compose.opencode.yml`）：
 
 ```env
+AI_ACCESS_TOKEN=一段足够长的随机串  # 必需；未设置时回退 ACCESS_TOKEN，两者都没有则 AI 返回 503
+# 首次打开 /ai-login（如 https://你的域名/ai-login）输入口令；口令只走 POST body，不写入网址或访问日志。
 OPENCODE_ENABLED=1            # 设为 0 关闭 AI 助手
-OPENCODE_BIN=opencode         # 不在 PATH 时用绝对路径
+OPENCODE_BIN=opencode         # 本地 spawn、且不在 PATH 时用绝对路径
 OPENCODE_PORT=4096
+# 方案 B：连接独立容器；密码必须与容器里的 OPENCODE_SERVER_PASSWORD 一致
+# OPENCODE_BASE_URL=http://127.0.0.1:4096
+# OPENCODE_SERVER_PASSWORD=另一段足够长的随机串
 AI_MAX_STEPS=8                # 单轮最大工具步数
 PAPER_CONTENT_TTL_HOURS=168   # 论文正文缓存 TTL
 INTERNAL_TOKEN=               # 内部检索接口的共享口令；缺省时每次启动随机
 ```
 
-未配置 `openai` provider 或 opencode 不可用时，`/api/ai/*` 返回 `503`，翻译功能不受影响。
+未配置 `AI_ACCESS_TOKEN`（且没有 `ACCESS_TOKEN`）、未配置 `openai` provider 或 opencode 不可用时，`/api/ai/*` 返回 `503`，翻译功能不受影响。带 token 的 API 调用也可以使用 `Authorization: Bearer <token>`。
 
 ## API
 

@@ -20,13 +20,25 @@ export interface OpencodeClient {
   eventStream(): Promise<Response>
 }
 
-export function createOpencodeClient(baseUrl: string, timeoutMs = 120000): OpencodeClient {
+/** `opencode serve` HTTP Basic auth (username is always `opencode`). */
+export function opencodeAuthHeaders(password: string | undefined): Record<string, string> {
+  if (!password) return {}
+  return { Authorization: `Basic ${Buffer.from(`opencode:${password}`).toString('base64')}` }
+}
+
+export function createOpencodeClient(
+  baseUrl: string,
+  timeoutMs = 120000,
+  password = '',
+): OpencodeClient {
   const root = baseUrl.replace(/\/+$/, '')
+  const auth = opencodeAuthHeaders(password)
+  const sessionPath = (sessionId: string) => `${root}/session/${encodeURIComponent(sessionId)}`
   return {
     async createSession(title) {
       const res = await fetch(`${root}/session`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...auth },
         body: JSON.stringify({ title }),
         signal: AbortSignal.timeout(timeoutMs),
       })
@@ -35,9 +47,9 @@ export function createOpencodeClient(baseUrl: string, timeoutMs = 120000): Openc
       return body.id
     },
     async promptAsync(sessionId, agent, providerID, modelID, text) {
-      const res = await fetch(`${root}/session/${sessionId}/prompt_async`, {
+      const res = await fetch(`${sessionPath(sessionId)}/prompt_async`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...auth },
         body: JSON.stringify({
           agent,
           model: { providerID, modelID },
@@ -48,27 +60,30 @@ export function createOpencodeClient(baseUrl: string, timeoutMs = 120000): Openc
       if (!res.ok) throw new Error(`opencode promptAsync ${res.status}`)
     },
     async sessionExists(sessionId) {
-      const res = await fetch(`${root}/session/${sessionId}`, {
+      const res = await fetch(sessionPath(sessionId), {
+        headers: auth,
         signal: AbortSignal.timeout(timeoutMs),
       })
       return res.ok
     },
     async messages(sessionId) {
-      const res = await fetch(`${root}/session/${sessionId}/message`, {
+      const res = await fetch(`${sessionPath(sessionId)}/message`, {
+        headers: auth,
         signal: AbortSignal.timeout(timeoutMs),
       })
       if (!res.ok) throw new Error(`opencode messages ${res.status}`)
       return (await res.json()) as unknown[]
     },
     async abort(sessionId) {
-      const res = await fetch(`${root}/session/${sessionId}/abort`, {
+      const res = await fetch(`${sessionPath(sessionId)}/abort`, {
         method: 'POST',
+        headers: auth,
         signal: AbortSignal.timeout(timeoutMs),
       })
       if (!res.ok) throw new Error(`opencode abort ${res.status}`)
     },
     async eventStream() {
-      return fetch(`${root}/event`)
+      return fetch(`${root}/event`, { headers: auth })
     },
   }
 }
@@ -77,6 +92,8 @@ export interface OpencodeManagerOptions {
   runtimeDir: string
   baseUrl: string
   port: number
+  /** Basic auth password for the spawned server; empty disables auth. */
+  password?: string
 }
 
 export class OpencodeManager {
@@ -120,18 +137,13 @@ export class OpencodeManager {
     for (const dir of [configHome, dataHome, cacheHome, stateHome]) mkdirSync(dir, { recursive: true, mode: 0o700 })
 
     const proc = Bun.spawn(
-      [config.ai.bin, 'serve', '--hostname', '127.0.0.1', '--port', String(this.opts.port)],
+      [config.ai.bin, 'serve', '--pure', '--hostname', '127.0.0.1', '--port', String(this.opts.port)],
       {
         cwd: this.opts.runtimeDir,
-        env: {
-          ...process.env,
-          XDG_CONFIG_HOME: configHome,
-          XDG_DATA_HOME: dataHome,
-          XDG_CACHE_HOME: cacheHome,
-          XDG_STATE_HOME: stateHome,
-          PAPER_API_BASE: Bun.env.PAPER_API_BASE ?? `http://127.0.0.1:${config.server.port}/api`,
-          PAPER_INTERNAL_TOKEN: INTERNAL_TOKEN,
-        },
+        // Do not inherit the server's whole environment: ACCESS_TOKEN, SMTP
+        // credentials and every provider key would otherwise be readable by
+        // the agent process. Only what opencode and our two tools need.
+        env: this.childEnv(configHome, dataHome, cacheHome, stateHome),
         stdout: 'inherit',
         stderr: 'inherit',
       },
@@ -151,6 +163,51 @@ export class OpencodeManager {
     proc.kill()
     this.proc = null
     throw new Error('opencode server did not become healthy')
+  }
+
+  /**
+   * A deliberately small environment for the agent. The server's process env
+   * contains ACCESS_TOKEN, SMTP_PASS, LLM_PROVIDERS and other secrets that the
+   * agent has no business seeing; inheritance turned a tool-policy bypass into
+   * a credential leak. Add a variable here if opencode genuinely needs it.
+   */
+  private childEnv(
+    configHome: string,
+    dataHome: string,
+    cacheHome: string,
+    stateHome: string,
+  ): Record<string, string> {
+    const env: Record<string, string> = {}
+    const passthrough = [
+      'PATH',
+      'LANG',
+      'LC_ALL',
+      'SHELL',
+      'TMPDIR',
+      'SSL_CERT_FILE',
+      'SSL_CERT_DIR',
+      'NODE_EXTRA_CA_CERTS',
+      'HTTP_PROXY',
+      'HTTPS_PROXY',
+      'NO_PROXY',
+      'http_proxy',
+      'https_proxy',
+      'no_proxy',
+    ]
+    for (const key of passthrough) {
+      const value = process.env[key]
+      if (value) env[key] = value
+    }
+    env.HOME = this.opts.runtimeDir
+    env.PWD = this.opts.runtimeDir
+    env.XDG_CONFIG_HOME = configHome
+    env.XDG_DATA_HOME = dataHome
+    env.XDG_CACHE_HOME = cacheHome
+    env.XDG_STATE_HOME = stateHome
+    env.PAPER_API_BASE = Bun.env.PAPER_API_BASE ?? `http://127.0.0.1:${config.server.port}/api`
+    env.PAPER_INTERNAL_TOKEN = INTERNAL_TOKEN
+    if (this.opts.password) env.OPENCODE_SERVER_PASSWORD = this.opts.password
+    return env
   }
 
   private onExit(): void {
@@ -176,7 +233,9 @@ export class OpencodeManager {
 
   private async ping(): Promise<boolean> {
     try {
-      const res = await fetch(`${this.opts.baseUrl}/global/health`)
+      const res = await fetch(`${this.opts.baseUrl}/global/health`, {
+        headers: opencodeAuthHeaders(this.opts.password),
+      })
       return res.ok
     } catch {
       return false

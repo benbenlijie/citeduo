@@ -1,7 +1,7 @@
 import { test, expect, beforeEach } from 'bun:test'
 import { openDb } from '../db'
 import { getSession, setSession } from '../ai-sessions'
-import { aiSessionRoute, aiChatRoute, aiHistoryRoute } from './ai'
+import { aiSessionRoute, aiChatRoute, aiHistoryRoute, aiStreamRoute } from './ai'
 import { createOpencodeClient } from '../opencode'
 
 let db: ReturnType<typeof openDb>
@@ -117,4 +117,22 @@ test('aiHistoryRoute maps messages to chat items', async () => {
     { role: 'user', text: 'hi' },
     { role: 'assistant', text: 'hello' },
   ])
+})
+
+test('aiStreamRoute disables nginx buffering and forwards text deltas', async () => {
+  const client = createOpencodeClient('http://oc')
+  const raw = [
+    'data: {"type":"message.part.delta","properties":{"sessionID":"s1","field":"text","delta":"hi"}}',
+    '',
+    'data: {"type":"session.idle","properties":{"sessionID":"s1"}}',
+    '',
+    '',
+  ].join('\n')
+  ;(client.eventStream as any) = async () => new Response(raw, { headers: { 'Content-Type': 'text/event-stream' } })
+  const res = await aiStreamRoute(new Request('http://x/api/ai/stream?sessionId=s1'), client, 's1')
+  expect(res.headers.get('x-accel-buffering')).toBe('no')
+  const body = await res.text()
+  expect(body).toContain('"type":"text"')
+  expect(body).toContain('"text":"hi"')
+  expect(body).toContain('"type":"done"')
 })

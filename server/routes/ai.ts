@@ -6,6 +6,10 @@ import { OPENCODE_AGENT } from '../opencode-config'
 import { normalizeOpencodeEvent, serializeClientEvent } from '../ai-events'
 import type { OpencodeClient } from '../opencode'
 
+const MAX_MESSAGE_CHARS = 8000
+const MAX_EXCERPT_CHARS = 20000
+const MAX_SESSION_ID_CHARS = 200
+
 function firstOpenaiProvider() {
   const provider = loadProviders().find((p) => p.kind === 'openai')
   if (!provider) throw new ApiError('LLM_UNAVAILABLE', '未配置可用的 AI provider', 503)
@@ -13,9 +17,11 @@ function firstOpenaiProvider() {
 }
 
 export async function aiSessionRoute(req: Request, db: Database, client: OpencodeClient): Promise<Response> {
-  const body = await readJson<{ arxivId?: string }>(req)
-  const arxivId = body.arxivId?.trim()
+  const body = await readJson<{ arxivId?: unknown }>(req)
+  if (!body || typeof body !== 'object') throw new ApiError('VALIDATION_FAILED', '请求体必须是对象')
+  const arxivId = typeof body.arxivId === 'string' ? body.arxivId.trim() : ''
   if (!arxivId) throw new ApiError('VALIDATION_FAILED', 'arxivId 不能为空')
+  if (arxivId.length > 64) throw new ApiError('VALIDATION_FAILED', 'arxivId 过长')
   let sessionId = getSession(arxivId, db)
   // The stored mapping can point at a session that no longer exists (e.g. after
   // an opencode restart); validate and recreate so a paper never gets stuck.
@@ -28,14 +34,21 @@ export async function aiSessionRoute(req: Request, db: Database, client: Opencod
 }
 
 export async function aiChatRoute(req: Request, client: OpencodeClient, db: Database): Promise<Response> {
-  const body = await readJson<{ sessionId?: string; message?: string; excerpt?: string; target?: string }>(req)
-  const sessionId = body.sessionId?.trim()
-  const message = body.message?.trim()
+  const body = await readJson<{ sessionId?: unknown; message?: unknown; excerpt?: unknown; target?: unknown }>(req)
+  if (!body || typeof body !== 'object') throw new ApiError('VALIDATION_FAILED', '请求体必须是对象')
+  const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : ''
+  const message = typeof body.message === 'string' ? body.message.trim() : ''
   if (!sessionId) throw new ApiError('VALIDATION_FAILED', 'sessionId 不能为空')
+  if (sessionId.length > MAX_SESSION_ID_CHARS) throw new ApiError('VALIDATION_FAILED', 'sessionId 过长')
   if (!message) throw new ApiError('VALIDATION_FAILED', 'message 不能为空')
+  if (message.length > MAX_MESSAGE_CHARS)
+    throw new ApiError('VALIDATION_FAILED', `message 不能超过 ${MAX_MESSAGE_CHARS} 字符`)
   const provider = firstOpenaiProvider()
-  const target = (body.target ?? 'zh').trim() || 'zh'
-  const excerpt = body.excerpt?.trim()
+  const target = typeof body.target === 'string' ? body.target.trim() || 'zh' : 'zh'
+  if (target.length > 32) throw new ApiError('VALIDATION_FAILED', 'target 过长')
+  const excerpt = typeof body.excerpt === 'string' ? body.excerpt.trim() : undefined
+  if (excerpt && excerpt.length > MAX_EXCERPT_CHARS)
+    throw new ApiError('VALIDATION_FAILED', `excerpt 不能超过 ${MAX_EXCERPT_CHARS} 字符`)
   const text = [
     excerpt ? `Selected excerpt:\n${excerpt}\n` : '',
     `Answer in ${target}.`,
@@ -126,6 +139,9 @@ export async function aiStreamRoute(req: Request, client: OpencodeClient, sessio
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       Connection: 'keep-alive',
+      // nginx buffers proxied responses by default, which breaks token-by-token
+      // streaming on the public site. This header disables it per response.
+      'X-Accel-Buffering': 'no',
     },
   })
 }

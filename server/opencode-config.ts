@@ -14,6 +14,10 @@ const SYSTEM_PROMPT = [
 export function buildOpencodeConfig(provider: ProviderConfig, maxSteps: number): string {
   const cfg = {
     $schema: 'https://opencode.ai/config.json',
+    // Keep the agent reproducible and keep session data local: no auto-update,
+    // no share links to opencode.ai.
+    update: 'disable',
+    share: 'disabled',
     model: `${provider.name}/${provider.model ?? 'default'}`,
     provider: {
       [provider.name]: {
@@ -36,18 +40,11 @@ export function buildOpencodeConfig(provider: ProviderConfig, maxSteps: number):
         steps: maxSteps,
         prompt: SYSTEM_PROMPT,
         permission: {
-          read: 'deny',
-          edit: 'deny',
-          glob: 'deny',
-          grep: 'deny',
-          list: 'deny',
-          bash: 'deny',
-          task: 'deny',
-          webfetch: 'deny',
-          websearch: 'deny',
-          lsp: 'deny',
-          skill: 'deny',
-          external_directory: 'deny',
+          // Allowlist, not a blocklist: a tool added by a future opencode
+          // release is denied by default instead of silently becoming callable.
+          '*': 'deny',
+          paper_search: 'allow',
+          paper_section: 'allow',
         },
       },
     },

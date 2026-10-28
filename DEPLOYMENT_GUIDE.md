@@ -6,7 +6,8 @@
 
 - **Bun** ≥ 1.3
 - **pnpm** 9
-- **opencode**（可选，AI 助手需要）：安装后 `opencode --version` 应正常输出版本（本特性按 1.18.33 验证）。
+- **Docker + Compose**（可选，方案 B 的 opencode 容器需要）
+- **opencode**（可选，仅本地 spawn 模式需要）：安装后 `opencode --version` 应正常输出版本（本特性按 1.18.35 验证）。
 
 ## 1. 初始化
 
@@ -53,37 +54,58 @@ PORT=9000 bun run server
 
 ### AI 助手（opencode agent，可选）
 
-阅读器内的 AI 助手依赖 `opencode`：
+阅读器内的 AI 助手默认只对**带 AI 口令**的访问开放；站点本身仍可公开阅读。
 
-- 服务端启动时会尝试拉起 `opencode serve`（复用 `LLM_PROVIDERS` 中第一个 `kind: "openai"` 条目）。`opencode` 必须在 `PATH` 中，或用 `OPENCODE_BIN=/绝对路径/opencode` 指定；否则启动日志会打印 `[opencode] failed to start`。
-- 需要至少配置一个 `openai` provider（见 README 的 LLM provider 一节），否则 AI 接口返回 `503`。
-- 健康检查：opencode 不可用（未安装、`OPENCODE_ENABLED=0` 或未配置 provider）时，`POST /api/ai/session` 返回 `503`；翻译功能不受影响。
-- 运行时隔离在 `data/opencode-runtime/`（已随 `data/` 忽略），可安全删除；服务重启会重建。
+```env
+# server/.env
+AI_ACCESS_TOKEN=一段足够长的随机串
+```
+- 未设置 `AI_ACCESS_TOKEN` 时回退 `ACCESS_TOKEN`；两者都没有时 `/api/ai/*` 直接 `503`，不会匿名开放。
+- 首次打开 `/ai-login`（例如 `https://你的域名/ai-login`；子路径部署加前缀，如 `/papers/ai-login`）输入口令。口令只通过 POST body 提交，写入 `cp_ai` Cookie，不会出现在 URL、浏览器历史或 nginx 访问日志里；API 调用也可以带 `Authorization: Bearer <token>`。
+- 未配置 `openai` provider 或 opencode 不可用时，`POST /api/ai/session` 返回 `503`；翻译功能不受影响。
+- 本地 spawn 模式需要主机装有 `opencode`（本特性按 1.18.35 验证），运行时隔离在 `data/opencode-runtime/`；服务启动时会自动生成随机 `OPENCODE_SERVER_PASSWORD`，不再裸奔。
 
-### AI 助手：外部 opencode 模式（本机跑 opencode，服务器只连接）
+#### 方案 B（推荐）：opencode 跑在独立容器
 
-如果部署机不值得/不方便常驻 opencode（例如 2GB 小机器），可以让 opencode 跑在你的本机，服务器通过反向 SSH 隧道连接：
+opencode 不再继承 Web 服务的文件系统和环境变量；容器以非 root、只读根文件系统、`cap_drop: ALL`、`no-new-privileges` 运行，只挂载一个运行时卷。
 
 **服务器 `server/.env`**
 ```env
-OPENCODE_BASE_URL=http://127.0.0.1:4096   # 不再本地 spawn，连接隧道里的本机 opencode
-INTERNAL_TOKEN=一段足够长的随机串          # 与下面的本机 runner 必须一致
+AI_ACCESS_TOKEN=一段足够长的随机串
+OPENCODE_ENABLED=1
+OPENCODE_BASE_URL=http://127.0.0.1:4096
+OPENCODE_SERVER_PASSWORD=另一段足够长的随机串   # 必须与容器一致
+INTERNAL_TOKEN=一段足够长的随机串                # 与容器里的 PAPER_INTERNAL_TOKEN 一致
 ```
 
-**本机**（opencode 与工具回调在服务器侧执行；工具抓正文时回调服务器公网 API）
+**准备容器环境文件**（不要提交）
 ```bash
-# 1) 常驻运行本机 opencode（独立 runtime，端口 4097，避免和本地开发冲突）
-OPENCODE_PORT=4097 \
-PAPER_API_BASE=https://watchdeep.net/papers/api \
-INTERNAL_TOKEN=<与服务器一致> \
-bun --env-file=server/.env run scripts/opencode-local.ts
-
-# 2) 反向隧道：把本机 4097 暴露到服务器的 127.0.0.1:4096（仅 loopback）
-autossh -M 0 -N -T -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
-  -o ExitOnForwardFailure=yes -R 127.0.0.1:4096:127.0.0.1:4097 webserver
+cp deploy/opencode.env.example deploy/opencode.env
+chmod 600 deploy/opencode.env
+# 填 LLM_PROVIDERS、PAPER_INTERNAL_TOKEN、OPENCODE_SERVER_PASSWORD
 ```
 
-建议用 systemd user 服务常驻这两条（参考 `citeduo-mtcode-tunnel.service`）。若本机关机/断网，AI 助手不可用，翻译不受影响。
+**构建并启动**
+```bash
+docker compose -f docker-compose.opencode.yml up -d --build
+# 没有 compose 插件时用：docker-compose -f docker-compose.opencode.yml up -d --build
+```
+如果服务器访问 Docker Hub / npm 很慢，可以在另一台机器构建后传输镜像，再用 `--no-build` 启动：
+```bash
+docker save citeduo-opencode:1.18.35 | gzip -1 | ssh server 'gunzip | docker load'
+docker compose -f docker-compose.opencode.yml up -d --no-build
+```
+
+验证 opencode API 确实需要密码：
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:4096/agent      # 401
+curl -s -o /dev/null -w '%{http_code}\n' -u "opencode:$OPENCODE_SERVER_PASSWORD" \
+  http://127.0.0.1:4096/agent                                             # 200
+```
+
+容器使用 host 网络，因此 `127.0.0.1:4096` 只对服务器本机可见；端口不要 `0.0.0.0` 暴露。容器内存上限是 1GB（实测一次真实问答峰值约 630MB；640MB 会被 cgroup OOM），建议宿主机至少 4GB 内存；2GB 机器很容易 swap/卡死。`restart: on-failure:3` 防止崩溃循环，但主机重启后不会自动拉起，需要再执行一次 `up -d`；如果持续 OOM，把 opencode 放到独立的小 VM（同样设置 `OPENCODE_BASE_URL` 和密码）即可。
+
+> 旧的反向 SSH 隧道方案（把本机 4097 转发到服务器 127.0.0.1:4096）不再推荐：它把整台开发机的 `build` agent 暴露给服务器本机，且历史上没有密码。若临时使用，必须设置 `OPENCODE_SERVER_PASSWORD`，并确保隧道只绑定 `127.0.0.1`；不要用 `-g` 或 `0.0.0.0`。
 
 ## 4. 常驻运行（可选）
 

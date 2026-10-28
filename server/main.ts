@@ -15,10 +15,20 @@ import { paperSearchRoute, paperSectionRoute } from './routes/paper'
 import { readerRoute } from './routes/reader'
 import { INTERNAL_TOKEN } from './internal-token'
 import { db } from './db'
-import { createOpencodeClient, OpencodeManager } from './opencode'
+import { randomUUID } from 'node:crypto'
+import { createOpencodeClient, OpencodeManager, opencodeAuthHeaders } from './opencode'
 import { join } from 'node:path'
-import { adminCookieHeader, cookieHeader, extractToken, isAdminAuthorized, safeEqual, withBasePath } from './auth'
+import {
+  adminCookieHeader,
+  cookieHeader,
+  extractToken,
+  isAdminAuthorized,
+  isAiAuthorized,
+  safeEqual,
+  withBasePath,
+} from './auth'
 import { createApiPipeline } from './api-pipeline'
+import { aiLoginPage, aiLoginRoute } from './ai-login'
 import { attachVisitorCookie, captureApiEvent, ensureVisitorIdentity, isTrackablePath, recordCapturedEvent } from './analytics'
 import { demoQuotaEnabled, demoQuotaResponse, registerDemoRequest } from './demo-quota'
 import { demoQuotaResetRoute, demoQuotaRoute, demoQuotaTestEmailRoute } from './routes/demo'
@@ -29,6 +39,10 @@ import { renderStatsPage } from './stats-page'
 const WEB_DIST = new URL('../academic-paper-explorer/dist', import.meta.url).pathname
 
 const ACCESS_TOKEN = config.server.accessToken
+// The AI assistant is gated separately so a public reading instance can stay
+// open while only token holders spend LLM calls. AI_ACCESS_TOKEN wins; when it
+// is absent the app token is reused. Neither present => assistant disabled.
+const AI_TOKEN = config.ai.accessToken ?? ACCESS_TOKEN
 // The reader's translation flow is chatty by design: one small /api/translate
 // request per block batch plus a provider-status poll, scaling with document
 // size. Exempting these keeps a large paper from tripping the generic per-IP
@@ -101,6 +115,25 @@ function unauthorized(): Response {
   return new Response(body, { status: 401, headers: { 'Content-Type': 'text/html; charset=utf-8' } })
 }
 
+function aiUnavailable(): Response {
+  return json(
+    { error: { code: 'LLM_UNAVAILABLE', message: 'AI 问答未启用或未配置访问口令' } },
+    503,
+  )
+}
+
+function unauthorizedAi(): Response {
+  return json(
+    {
+      error: {
+        code: 'UNAUTHORIZED',
+        message: `需要 AI 访问口令：请打开 ${withBasePath(config.server.basePath, '/ai-login')} 输入口令，或使用 Authorization: Bearer / x-ai-token`,
+      },
+    },
+    401,
+  )
+}
+
 function safeRequestIp(req: Request): string {
   try {
     return server.requestIP(req)?.address ?? 'unknown'
@@ -122,28 +155,44 @@ recoverJobs()
 
 const externalBase = config.ai.externalBaseUrl
 const opencodeBase = externalBase || `http://127.0.0.1:${config.ai.port}`
-// External mode: opencode runs elsewhere (e.g. a developer machine over a
-// reverse SSH tunnel); don't spawn or own a local process.
+// Local spawn gets a per-boot random password even when the operator did not
+// set one. External opencode (e.g. a container) must be given the same password
+// through OPENCODE_SERVER_PASSWORD; without it we refuse to disable the auth
+// gate rather than talk to an unauthenticated agent API.
+const localPassword = config.ai.serverPassword || randomUUID()
+const opencodePassword = externalBase ? config.ai.serverPassword : localPassword
+const aiUsable = config.ai.enabled && !!AI_TOKEN && !!opencodePassword
 const opencodeManager =
-  config.ai.enabled && !externalBase
+  aiUsable && !externalBase
     ? new OpencodeManager({
         runtimeDir: join(import.meta.dir, '../data/opencode-runtime'),
         baseUrl: opencodeBase,
         port: config.ai.port,
+        password: localPassword,
       })
     : null
-const opencodeClient = createOpencodeClient(opencodeBase)
+const opencodeClient = createOpencodeClient(opencodeBase, 120000, opencodePassword)
+
+if (config.ai.enabled && !AI_TOKEN) {
+  console.warn('[ai] AI_ACCESS_TOKEN/ACCESS_TOKEN is not set: AI endpoints are disabled')
+}
+if (config.ai.enabled && externalBase && !config.ai.serverPassword) {
+  console.warn('[opencode] external opencode requires OPENCODE_SERVER_PASSWORD: AI is disabled')
+}
 
 let aiHealthAt = 0
 let aiHealthy = false
 async function aiAvailable(): Promise<boolean> {
-  if (!config.ai.enabled) return false
+  if (!aiUsable) return false
   if (opencodeManager) return opencodeManager.isHealthy()
   const now = Date.now()
   if (now - aiHealthAt < 5000) return aiHealthy
   aiHealthAt = now
   try {
-    const res = await fetch(`${opencodeBase}/global/health`, { signal: AbortSignal.timeout(2500) })
+    const res = await fetch(`${opencodeBase}/global/health`, {
+      headers: opencodeAuthHeaders(opencodePassword),
+      signal: AbortSignal.timeout(2500),
+    })
     aiHealthy = res.ok
   } catch {
     aiHealthy = false
@@ -247,7 +296,34 @@ server = Bun.serve({
     try {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204 })
       const secure = isSecureRequest(req, url)
+
+      // The login form and its POST target must be reachable before either auth
+      // gate: the browser has no cookie yet. The form body carries the token;
+      // nothing is ever put in the URL.
+      if (p === '/ai-login' && req.method === 'GET') {
+        if (!aiUsable || !AI_TOKEN) return aiUnavailable()
+        return aiLoginPage(config.server.basePath)
+      }
+      if (p === '/api/ai/login' && req.method === 'POST') {
+        if (!aiUsable || !AI_TOKEN) return aiUnavailable()
+        const res = await aiLoginRoute(req, AI_TOKEN, config.server.basePath, secure)
+        // Single-token deployments also gate the pages with ACCESS_TOKEN. Set
+        // the app cookie as well so the post-login redirect does not bounce.
+        if ((res.status === 200 || res.status === 303) && ACCESS_TOKEN && AI_TOKEN === ACCESS_TOKEN) {
+          res.headers.append('Set-Cookie', cookieHeader(ACCESS_TOKEN, secure))
+        }
+        return res
+      }
+
       const adminPath = isAdminPath(p)
+
+      // The reader stays public; the agent does not. Fail closed when no AI
+      // token is configured. Browser logins arrive as the cp_ai cookie set by
+      // the POST above; API clients use Bearer or x-ai-token.
+      if (p.startsWith('/api/ai/')) {
+        if (!aiUsable) return aiUnavailable()
+        if (!isAiAuthorized(req.headers, AI_TOKEN)) return unauthorizedAi()
+      }
 
       if (adminPath) {
         if (config.demo.public && !ADMIN_TOKEN) {

@@ -151,6 +151,7 @@ user_input_files/*.tmp
 # 部署相关的敏感信息
 deploy_keys/
 deployment_config/
+deploy/opencode.env
 
 # 本地配置文件
 .local 
