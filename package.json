@@ -19,6 +19,6 @@
   },
   "dependencies": {
     "nodemailer": "^10.2.1",
-    "unpdf": "1.8.1"
+    "unpdf": "1.9.1"
   }
 }
