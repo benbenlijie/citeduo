@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Upstream politeness floors**: `bun run check:politeness` (and the CI server job) asserts that the default spacing in `server/config.ts` stays at or above each upstream's floor — published where the vendor documents one, an explicit project policy where it does not (arXiv API 3 s and S2's 1 req/s are published limits; arXiv content 1 s and OpenAlex 200 ms are project policy) — with source URLs in the script. The parse ignores comments and fails closed when a default is missing, unrecognised, or defined twice.
+- **Upstream politeness floors**: `bun run check:politeness` (and the CI server job) asserts that the default spacing in `server/config.ts` stays at or above each upstream's floor — published where the vendor documents one, an explicit project policy where it does not (arXiv API 3 s and S2's 1 req/s with an API key are published limits; arXiv content 1 s, anonymous S2 1 s and OpenAlex 200 ms are project policy, and the failure message says which) — with source URLs in the script. The parse ignores comments and fails closed when a default is missing, unrecognised, or defined twice.
 
 - **`ABSTRACT_MEMO_MAX`**: the in-memory CC0 abstract memo used when `PAPER_CONTENT_MODE=off` is configurable (default 500); oldest entries are evicted when the cap is hit. `0` disables the memo; a non-numeric value falls back to 500.
 

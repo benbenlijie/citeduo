@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { checkFloors, defaultFor } from './check-politeness-floors'
+import { FLOORS, checkFloors, defaultFor } from './check-politeness-floors'
 
 const fixture = (s2: string) => `
 num(Bun.env.ARXIV_API_MIN_INTERVAL_MS, 3000)
@@ -39,6 +39,31 @@ describe('politeness floors', () => {
       'ARXIV_API_MIN_INTERVAL_MS, 1000')
     expect(checkFloors(source).failures).toEqual([
       expect.stringContaining('https://info.arxiv.org/help/api/tou.html')])
+  })
+  test('calls a lowered published floor published', () => {
+    const source = fixture('1000').replace('ARXIV_API_MIN_INTERVAL_MS, 3000',
+      'ARXIV_API_MIN_INTERVAL_MS, 1000')
+    expect(checkFloors(source).failures).toEqual([
+      expect.stringContaining('arXiv API: default 1000 ms is below published floor 3000 ms')])
+  })
+  test('calls a lowered project-policy floor policy, not published', () => {
+    const source = fixture('1000').replace('OPENALEX_MIN_INTERVAL_MS, 200',
+      'OPENALEX_MIN_INTERVAL_MS, 100')
+    expect(checkFloors(source).failures).toEqual([
+      expect.stringContaining('OpenAlex: default 100 ms is below project policy floor 200 ms')])
+    expect(checkFloors(fixture('500')).failures[0]).toContain(
+      'Semantic Scholar anonymous: default 500 ms is below project policy floor 1000 ms')
+  })
+  test('marks every floor without a published rule as project policy', () => {
+    expect(Object.fromEntries(FLOORS.map((f) => [f.env, f.basis]))).toEqual({
+      ARXIV_API_MIN_INTERVAL_MS: 'published',
+      ARXIV_CONTENT_MIN_INTERVAL_MS: 'policy',
+      S2_MIN_INTERVAL_MS: 'policy',
+      OPENALEX_MIN_INTERVAL_MS: 'policy',
+    })
+    for (const floor of FLOORS.filter((f) => f.basis === 'policy')) {
+      expect(floor.note).toStartWith(`Project politeness floor (${floor.floorMs} ms).`)
+    }
   })
   test('fails closed when a configured env variable disappears', () => {
     expect(checkFloors(fixture('1000').replace('OPENALEX_MIN_INTERVAL_MS', 'RENAMED')).failures)
