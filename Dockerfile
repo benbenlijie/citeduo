@@ -13,7 +13,7 @@ ENV VITE_BASE=${VITE_BASE}
 RUN pnpm build
 
 # ---- runtime: one Bun process serving the API, the static build and SQLite ----
-FROM oven/bun:1.3-slim
+FROM oven/bun:1.4-slim
 WORKDIR /app
 
 ENV PORT=8787 \
