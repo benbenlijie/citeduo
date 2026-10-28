@@ -23,6 +23,18 @@ describe('AiAssistantPanel', () => {
     expect((sendMessage as any).mock.calls[0][0]).toMatchObject({ sessionId: 's1', message: 'loss?', target: 'zh' })
   })
 
+  it('renders assistant history as Markdown with LaTeX math', async () => {
+    const { fetchHistory } = await import('../lib/aiAgent')
+    ;(fetchHistory as any).mockResolvedValueOnce([
+      { role: 'assistant', text: '## 结论\n\n论文**没有**点名数据集。\n\n$A_d = R_s A_s$' },
+    ])
+    const { container } = render(
+      <AiAssistantPanel arxivId="2401.00003" selection="" target="zh" onClose={() => {}} />,
+    )
+    expect(await screen.findByRole('heading', { name: '结论' })).toBeTruthy()
+    expect(container.querySelector('.katex')).toBeTruthy()
+  })
+
   it('reconciles the transcript from history when the turn completes', async () => {
     const { streamEvents, fetchHistory } = await import('../lib/aiAgent')
     let onEvent: ((e: unknown) => void) | null = null

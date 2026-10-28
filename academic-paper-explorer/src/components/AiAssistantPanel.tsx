@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, Send, Sparkles, Square } from 'lucide-react'
 import { useAiChatStore } from '../store/useAiChatStore'
 import { abortSession, ensureSession, fetchHistory, sendMessage, streamEvents } from '../lib/aiAgent'
+import AiMarkdown from './AiMarkdown'
 
 interface Props {
   arxivId: string
@@ -130,11 +131,21 @@ const AiAssistantPanel: React.FC<Props> = ({ arxivId, selection, target, onClose
               )}
               <div
                 className={
-                  'inline-block whitespace-pre-wrap rounded px-2 py-1 text-xs leading-relaxed ' +
-                  (m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-900 text-gray-200')
+                  'max-w-full rounded px-2 py-1 text-xs leading-relaxed ' +
+                  (m.role === 'user'
+                    ? 'inline-block whitespace-pre-wrap bg-indigo-600 text-left text-white'
+                    : 'block bg-gray-900 text-gray-200')
                 }
               >
-                {m.text || (m.role === 'assistant' && chat.streaming ? '思考中…' : '')}
+                {m.role === 'assistant' ? (
+                  m.text ? (
+                    <AiMarkdown text={m.text} />
+                  ) : chat.streaming ? (
+                    '思考中…'
+                  ) : null
+                ) : (
+                  m.text
+                )}
               </div>
               {m.error && <div className="mt-1 text-xs text-red-400">{m.error}</div>}
             </div>

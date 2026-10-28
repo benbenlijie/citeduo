@@ -130,8 +130,10 @@ Hard constraints that shape every decision below:
 | `lib/translator.ts` | Client provider orchestration: browser built-in + `/api/translate`, with fallback + cache. |
 | `lib/aiAgent.ts` | Client for `/api/ai/*` (session/chat/abort/history) plus the SSE reader with pure event-normalization helpers. |
 | `lib/aiChat.ts` | Shared `AiClientEvent` types + chat reducer (append deltas, tool activity, error, done). |
+| `lib/aiMarkdown.ts` | Pure normalization of model LaTeX delimiters and emphasis spacing before Markdown parsing. |
 | `store/useAiChatStore.ts` | Zustand store holding per-paper chat transcripts, streaming state and abort control. |
 | `components/AiAssistantPanel.tsx` | Reader "AI 助手" chat UI: message list, input, streaming bubble, tool chips, error/retry, stop. |
+| `components/AiMarkdown.tsx` | Assistant-answer renderer: GFM Markdown + KaTeX math, raw HTML skipped. |
 | `components/ui/resizable.tsx` | `react-resizable-panels` wrappers (group/panel/handle); draggable, keyboard-operable panel widths, persisted per layout. |
 | `graph/urlState.ts` | Pure encode/decode of the view state to/from a query string. |
 | `graph/ForceGraph3DLazy.tsx` | Lazily-imported three.js renderer wrapper (not in the initial bundle). |
@@ -420,7 +422,9 @@ own text **on demand** instead of answering from the model's memory.
 - **Frontend** — `components/AiAssistantPanel.tsx` renders the chat (message
   list, streaming bubble, tool chips, retry/stop) using
   `store/useAiChatStore.ts` for per-paper transcripts and `lib/aiChat.ts` for the
-  reducer; `lib/aiAgent.ts` is the `/api/ai/*` client plus SSE reader. The reader
+  reducer; assistant messages go through `components/AiMarkdown.tsx` (GFM +
+  KaTeX, raw HTML skipped), with delimiter cleanup in `lib/aiMarkdown.ts`.
+  `lib/aiAgent.ts` is the `/api/ai/*` client plus SSE reader. The reader
   bootstraps a session per paper and reloads history on mount.
 - **Security posture** — the paper text is untrusted: the system prompt instructs
   the agent to ignore instructions found inside retrieved content
