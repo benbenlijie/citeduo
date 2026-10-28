@@ -83,10 +83,20 @@ function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
 }
 
+/**
+ * An integer literal as TypeScript accepts it: digits, optionally grouped with
+ * single `_` separators (`3_000`). `literalValue` drops the separators.
+ */
+const INT = String.raw`(\d+(?:_\d+)*)`
+/** Whitespace (including line breaks), an optional trailing comma, then `)`. */
+const CLOSE = String.raw`\s*,?\s*\)`
+
+const literalValue = (literal: string) => Number(literal.replaceAll('_', ''))
+
 export function defaultFor(source: string, env: string, keyed = false): number | null {
   const code = stripComments(source)
   const plain = new RegExp(
-    String.raw`num\(\s*Bun\.env\.${env}\s*,\s*(\d+)\s*\)`,
+    String.raw`num\(\s*Bun\.env\.${env}\s*,\s*${INT}${CLOSE}`,
     'g',
   )
   const plainMatches = [...code.matchAll(plain)]
@@ -94,7 +104,7 @@ export function defaultFor(source: string, env: string, keyed = false): number |
   // Only this positive condition identifies the keyed and anonymous branches.
   // An inverted or unfamiliar condition fails closed rather than guessing.
   const ternary = new RegExp(
-    String.raw`num\(\s*Bun\.env\.S2_MIN_INTERVAL_MS\s*,\s*env\.semanticScholarApiKey\s*\?\s*(\d+)\s*:\s*(\d+)\s*\)`,
+    String.raw`num\(\s*Bun\.env\.S2_MIN_INTERVAL_MS\s*,\s*env\.semanticScholarApiKey\s*\?\s*${INT}\s*:\s*${INT}${CLOSE}`,
     'g',
   )
   const ternaryMatches =
@@ -104,8 +114,8 @@ export function defaultFor(source: string, env: string, keyed = false): number |
   // rather than trusting whichever happens to appear first.
   if (plainMatches.length + ternaryMatches.length !== 1) return null
 
-  if (plainMatches.length === 1) return Number(plainMatches[0][1])
-  return Number(ternaryMatches[0][keyed ? 1 : 2])
+  if (plainMatches.length === 1) return literalValue(plainMatches[0][1])
+  return literalValue(ternaryMatches[0][keyed ? 1 : 2])
 }
 
 export function checkFloors(source: string): { failures: string[]; successes: string[] } {

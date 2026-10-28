@@ -77,8 +77,38 @@ describe('politeness floors', () => {
     expect(checkFloors(source).failures).toEqual([
       expect.stringContaining('Semantic Scholar keyed')])
   })
+  test.each([
+    ['numeric separators', 'num(Bun.env.ARXIV_API_MIN_INTERVAL_MS, 3_000)'],
+    ['a trailing block comment', 'num(Bun.env.ARXIV_API_MIN_INTERVAL_MS, 3000 /* ms */)'],
+    ['one argument per line', 'num(\n  Bun.env.ARXIV_API_MIN_INTERVAL_MS,\n  3000,\n)'],
+  ])('reads a default written with %s', (_, call) => {
+    const source = fixture('1000').replace('num(Bun.env.ARXIV_API_MIN_INTERVAL_MS, 3000)', call)
+    expect(defaultFor(source, 'ARXIV_API_MIN_INTERVAL_MS')).toBe(3000)
+    expect(checkFloors(source).failures).toEqual([])
+  })
+  test('reads separators and a trailing comma in the keyed ternary', () => {
+    const source = fixture('\n  env.semanticScholarApiKey ? 1_000 : 1_500,\n')
+    expect(defaultFor(source, 'S2_MIN_INTERVAL_MS')).toBe(1500)
+    expect(defaultFor(source, 'S2_MIN_INTERVAL_MS', true)).toBe(1000)
+    expect(checkFloors(source).failures).toEqual([])
+  })
+  test('still rejects a lowered default written with separators', () => {
+    const source = fixture('1000').replace('ARXIV_API_MIN_INTERVAL_MS, 3000',
+      'ARXIV_API_MIN_INTERVAL_MS, 1_000,')
+    expect(checkFloors(source).failures).toEqual([
+      expect.stringContaining('default 1000 ms is below published floor 3000 ms')])
+  })
+  test.each(['3__000', '3000_', '_3000'])('fails closed for the invalid literal %s', (value) => {
+    const source = fixture('1000').replace('ARXIV_API_MIN_INTERVAL_MS, 3000',
+      `ARXIV_API_MIN_INTERVAL_MS, ${value}`)
+    expect(defaultFor(source, 'ARXIV_API_MIN_INTERVAL_MS')).toBeNull()
+  })
   test('fails closed when the same default is defined twice', () => {
     const source = `num(Bun.env.S2_MIN_INTERVAL_MS, 1000)\n${fixture('env.semanticScholarApiKey ? 100 : 1000')}`
     expect(checkFloors(source).failures).toHaveLength(2)
+  })
+  test('fails closed on a duplicate written in a different style', () => {
+    const source = `num(\n  Bun.env.S2_MIN_INTERVAL_MS,\n  1_000,\n)\n${fixture('1000')}`
+    expect(defaultFor(source, 'S2_MIN_INTERVAL_MS')).toBeNull()
   })
 })
