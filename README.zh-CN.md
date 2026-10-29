@@ -260,6 +260,16 @@ CI 在每次 push 与 PR 上跑的就是这些。提交信息约定与开发流�
 
 欢迎贡献，请先看 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。安全问题请按 [SECURITY.md](SECURITY.md) 私下报告，不要开公开 issue。
 
+## 贡献者
+
+感谢每一位为 CiteDuo 花过时间的人——代码、文档、bug 报告和点子都算。
+
+<a href="https://github.com/benbenlijie/citeduo/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=benbenlijie/citeduo" alt="贡献者" />
+</a>
+
+由 [contrib.rocks](https://contrib.rocks) 生成。
+
 ## 许可证
 
 [MIT](LICENSE)。

@@ -263,6 +263,16 @@ This is not the first tool in this space, and it does not try to replace the goo
 
 Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Security issues: please follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
 
+## Contributors
+
+Thanks to everyone who has spent time on CiteDuo — code, docs, bug reports and ideas all count.
+
+<a href="https://github.com/benbenlijie/citeduo/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=benbenlijie/citeduo" alt="Contributors" />
+</a>
+
+Made with [contrib.rocks](https://contrib.rocks).
+
 ## License
 
 [MIT](LICENSE).
