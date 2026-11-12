@@ -3,7 +3,7 @@
 # ---- frontend: React 18 + Vite, built with the pnpm version the repo pins ----
 # Stay on 24: Node.js 25 and later no longer bundle corepack, and the step below
 # needs it to honour `packageManager` in package.json.
-FROM node:24-slim AS web
+FROM node:25-slim AS web
 WORKDIR /build
 RUN corepack enable
 COPY academic-paper-explorer/package.json academic-paper-explorer/pnpm-lock.yaml ./
