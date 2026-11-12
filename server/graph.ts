@@ -5,6 +5,7 @@ import { getEmbeddings, semanticNeighborEdges, upsertEmbedding } from './embeddi
 import { louvain } from './community'
 import { config } from './config'
 import { upsertPaper, upsertCitation, ensurePaperStub } from './papers'
+import { db } from './db'
 import { persistRelations } from './relations'
 
 export interface GraphNode {
@@ -292,6 +293,11 @@ export async function buildNetwork(root: S2Paper, opts: BuildOpts): Promise<Grap
       }
     }
 
+    // The writes are collected and applied in one transaction per level. The
+    // batch fetch below is the only await inside a level, and db.transaction()
+    // is synchronous, so this is the point where the statements can be batched:
+    // one auto-commit per citation was ~thousands of fsyncs per crawl.
+    const pendingCites: Array<[citing: string, cited: string]> = []
     for (const paper of frontier) {
       const refs = refsByNode.get(paper.paperId) ?? new Set<string>()
       for (const r of paper.references ?? []) refs.add(r.paperId)
@@ -300,8 +306,7 @@ export async function buildNetwork(root: S2Paper, opts: BuildOpts): Promise<Grap
       for (const r of (paper.references ?? []).slice(0, refLimit)) {
         if (!edges.some((e) => e.from === paper.paperId && e.to === r.paperId)) {
           edges.push({ from: paper.paperId, to: r.paperId, type: 'reference', weight: 1 })
-          ensurePaperStub(r.paperId)
-          upsertCitation(paper.paperId, r.paperId)
+          pendingCites.push([paper.paperId, r.paperId])
         }
         note(r.paperId, r.year, r.citationCount)
       }
@@ -309,27 +314,41 @@ export async function buildNetwork(root: S2Paper, opts: BuildOpts): Promise<Grap
         for (const c of citingLists.get(paper.paperId) ?? []) {
           if (!edges.some((e) => e.from === c.paperId && e.to === paper.paperId)) {
             edges.push({ from: c.paperId, to: paper.paperId, type: 'citation', weight: 1 })
-            ensurePaperStub(c.paperId)
-            upsertCitation(c.paperId, paper.paperId)
+            pendingCites.push([c.paperId, paper.paperId])
           }
           note(c.paperId, c.year)
         }
       }
     }
 
+    const writeLevel = (fetchedPapers: S2Paper[]): void => {
+      for (const [citing, cited] of pendingCites) {
+        // Either end can be a stub: a reference edge's cited paper, or a
+        // citation edge's citing paper (fetched only as a list entry).
+        ensurePaperStub(citing)
+        ensurePaperStub(cited)
+        upsertCitation(citing, cited)
+      }
+      for (const p of fetchedPapers) upsertPaper(p)
+    }
+
     const wanted = rankCandidates(stats, priorityIds, root.year).slice(0, config.crawl.s2BatchSize)
-    if (!wanted.length) break
+    if (!wanted.length) {
+      // No new papers, but the citations found at this level still count.
+      if (pendingCites.length) db.transaction(() => writeLevel([]))()
+      break
+    }
 
     const fetched = await getPapersBatch(wanted)
     const nextFrontier: S2Paper[] = []
-    fetched.forEach((p) => {
-      if (!p || nodes.size >= maxNodes) return
+    for (const p of fetched) {
+      if (!p || nodes.size >= maxNodes) continue
       seen.add(p.paperId)
       nodes.set(p.paperId, graphNodeFromS2(p, false, level + 1))
       canonicalOf.set(p.paperId, canonicalKeyFromS2(p))
-      upsertPaper(p)
       nextFrontier.push(p)
-    })
+    }
+    db.transaction(() => writeLevel(nextFrontier))()
     onProgress?.(nodes.size, maxNodes)
     frontier = nextFrontier
     level++
