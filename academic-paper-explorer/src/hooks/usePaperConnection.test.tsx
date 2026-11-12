@@ -55,6 +55,17 @@ describe('usePaperConnection', () => {
     apiMock.connect.mockResolvedValue(data)
     const { result } = renderHook(() => usePaperConnection('A', 'B'), { wrapper })
     await waitFor(() => expect(result.current.data).toEqual(data))
-    expect(apiMock.connect).toHaveBeenCalledWith('A', 'B')
+    expect(apiMock.connect).toHaveBeenCalledWith('A', 'B', undefined)
+  })
+
+  it('passes the upstream decision through, and re-asks when it flips', async () => {
+    apiMock.connect.mockResolvedValue(data)
+    const { rerender } = renderHook(({ live }) => usePaperConnection('A', 'B', true, live), {
+      wrapper,
+      initialProps: { live: false as boolean | undefined },
+    })
+    await waitFor(() => expect(apiMock.connect).toHaveBeenCalledWith('A', 'B', false))
+    rerender({ live: true })
+    await waitFor(() => expect(apiMock.connect).toHaveBeenCalledWith('A', 'B', true))
   })
 })

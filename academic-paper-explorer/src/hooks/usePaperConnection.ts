@@ -9,11 +9,18 @@ import type { PaperConnection } from '../types/domain'
  * shot (the server caps its own crawl at `CONNECT_MAX_MS`). Results are cached
  * for ten minutes because a live search can cost tens of upstream requests.
  */
-export function usePaperConnection(fromId: string | null, toId: string | null, enabled = true) {
+export function usePaperConnection(
+  fromId: string | null,
+  toId: string | null,
+  enabled = true,
+  live?: boolean,
+) {
   return useQuery<PaperConnection>({
-    queryKey: ['connection', fromId, toId],
+    // `live` is part of the key: flipping the upstream toggle must re-ask
+    // instead of serving the answer the other mode produced.
+    queryKey: ['connection', fromId, toId, live ?? 'default'],
     enabled: enabled && !!fromId && !!toId && fromId !== toId,
-    queryFn: () => api.connect(fromId!, toId!),
+    queryFn: () => api.connect(fromId!, toId!, live),
     staleTime: 10 * 60 * 1000,
     retry: 1,
   })

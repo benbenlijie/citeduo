@@ -237,7 +237,9 @@ export async function findConnection(
   const maxHops = opts.maxHops ?? cfg.maxHops
   const maxPaths = opts.maxPaths ?? cfg.maxPaths
   const maxExecutionMs = opts.maxExecutionMs ?? cfg.maxExecutionMs
-  const live = opts.live ?? !cfg.localOnly
+  // `CONNECT_LOCAL_ONLY` is an operator policy, not a default: a client that
+  // asks for `live` still gets a local-only search when it is set.
+  const live = cfg.localOnly ? false : (opts.live ?? true)
   const semanticMinSim = cfg.semanticMinSim
   const dbIn = opts.db ?? defaultDb
   const started = Date.now()

@@ -1,13 +1,19 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import ConnectionPanel from './ConnectionPanel'
 import { useUiStore } from '../store/useUiStore'
 import type { Paper, PaperConnection } from '../types/domain'
 
-const hookMock = vi.hoisted(() => ({ value: {} as Record<string, unknown> }))
+const configMock = vi.hoisted(() => ({ getConfig: vi.fn() }))
+vi.mock('../services/api', () => ({ api: { getConfig: configMock.getConfig } }))
+
+const hookMock = vi.hoisted(() => ({ value: {} as Record<string, unknown>, args: [] as unknown[] }))
 vi.mock('../hooks/usePaperConnection', () => ({
-  usePaperConnection: () => ({ data: undefined, isFetching: false, error: null, ...hookMock.value }),
+  usePaperConnection: (...args: unknown[]) => {
+    hookMock.args = args
+    return { data: undefined, isFetching: false, error: null, ...hookMock.value }
+  },
 }))
 
 // useGraphSelection reads the two panes' cached networks to label the "图上选中的节点"
@@ -72,6 +78,8 @@ const connection = (over: Partial<PaperConnection> = {}): PaperConnection =>
   }) as unknown as PaperConnection
 
 beforeEach(() => {
+  configMock.getConfig.mockResolvedValue({ connectLocalOnly: false })
+  hookMock.args = []
   hookMock.value = { data: undefined, isFetching: false, error: null }
   networkMock.byId = {}
   useUiStore.setState({
@@ -281,5 +289,34 @@ describe('ConnectionPanel results', () => {
     useUiStore.setState({ connectionRequest: { fromId: 'A', toId: 'B' } })
     render(<ConnectionPanel />)
     expect(screen.getByText('上游限流')).toBeInTheDocument()
+  })
+})
+
+describe('ConnectionPanel upstream toggle', () => {
+  it('defaults to the server setting and passes it to the query', async () => {
+    configMock.getConfig.mockResolvedValue({ connectLocalOnly: false })
+    useUiStore.setState({ connectionRequest: { fromId: 'A', toId: 'B' } })
+    render(<ConnectionPanel />)
+    const box = await screen.findByRole('checkbox', { name: /允许联网扩展/ })
+    expect(box).toBeChecked()
+    await waitFor(() => expect(hookMock.args[3]).toBe(true))
+  })
+
+  it('starts unchecked and can be turned off, which reaches the query', async () => {
+    configMock.getConfig.mockResolvedValue({ connectLocalOnly: false })
+    useUiStore.setState({ connectionRequest: { fromId: 'A', toId: 'B' } })
+    render(<ConnectionPanel />)
+    const box = await screen.findByRole('checkbox', { name: /允许联网扩展/ })
+    fireEvent.click(box)
+    expect(box).not.toBeChecked()
+    await waitFor(() => expect(hookMock.args[3]).toBe(false))
+  })
+
+  it('disables upstream entirely when the operator turned it off', async () => {
+    configMock.getConfig.mockResolvedValue({ connectLocalOnly: true })
+    render(<ConnectionPanel />)
+    expect(await screen.findByText(/本实例已关闭联网扩展/)).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(hookMock.args[3]).toBe(false)
   })
 })
