@@ -173,3 +173,8 @@ user_input_files/
 
 # local deploy target (host names, paths)
 scripts/deploy.env
+
+# corepack / docker scratch dirs used by local verification
+.h/
+.dk/
+.tmp-docker/
