@@ -19,6 +19,8 @@ on:
   pull_request:
     branches: [main]
     paths:
+      # Editing this workflow should exercise it, smoke test included.
+      - '.github/workflows/docker.yml'
       - 'Dockerfile'
       - '.dockerignore'
       - 'package.json'
@@ -54,6 +56,8 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=ref,event=branch
+            # PR builds are not pushed, but they need a tag for `docker run`.
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
@@ -62,7 +66,47 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
+          # On PRs the image is not published, so load it into the daemon for
+          # the smoke test below.
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Issue #5: building is not running. Start the image and prove it serves
+      # and persists, so a broken CMD, user or port fails here instead of after
+      # `latest` has been replaced.
+      - name: Smoke-test the image
+        if: github.event_name == 'pull_request'
+        env:
+          IMAGE: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          image="$(printf '%s\n' "$IMAGE" | head -n1)"
+          if [ -z "$image" ]; then
+            echo "::error::metadata-action produced no tag, cannot run the image"
+            exit 1
+          fi
+          trap 'docker rm -f citeduo-smoke >/dev/null 2>&1 || true' EXIT
+          docker run -d --name citeduo-smoke -p 127.0.0.1:8787:8787 -v citeduo-smoke-data:/data "$image"
+          up=""
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://127.0.0.1:8787/api/llm/status; then up=yes; break; fi
+            sleep 1
+          done
+          if [ -z "$up" ]; then
+            echo "::error::the image never answered on /api/llm/status"
+            docker logs citeduo-smoke
+            exit 1
+          fi
+          if [ "$(docker exec citeduo-smoke id -u)" = "0" ]; then
+            echo "::error::the container runs as root"
+            exit 1
+          fi
+          if ! docker inspect -f '{{range .Mounts}}{{.Type}}:{{.Destination}} {{end}}' citeduo-smoke | grep -q 'volume:/data'; then
+            echo "::error::/data is not a volume, the SQLite file would not survive 'docker compose down'"
+            exit 1
+          fi
+          docker exec citeduo-smoke test -f /data/app.db
+          echo "image serves /api/llm/status, runs as uid $(docker exec citeduo-smoke id -u), /data is a volume"
