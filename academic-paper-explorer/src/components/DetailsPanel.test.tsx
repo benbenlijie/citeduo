@@ -38,6 +38,12 @@ beforeEach(() => {
 })
 
 describe('DetailsPanel notes', () => {
+  it('shows the selected paper while full details are loading', () => {
+    detailsMock.value = { data: undefined, isLoading: true, error: null }
+    renderPanel()
+    expect(screen.getByText('T')).toBeInTheDocument()
+  })
+
   it('shows the existing note and persists edits', () => {
     useNotesStore.setState({ notes: { p1: 'my thought' } })
     renderPanel()
@@ -204,7 +210,7 @@ describe('DetailsPanel association entry', () => {
     detailsMock.value = { data: undefined, isLoading: true, error: null }
     useUiStore.setState({ selectedNodeId: 'p2' })
     renderPanel()
-    expect(screen.getByText('加载详情中...')).toBeInTheDocument()
+    expect(screen.getByText('T')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /与当前论文分析关联/ })).toBeInTheDocument()
   })
 

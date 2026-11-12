@@ -176,7 +176,9 @@ const DetailsPanel: React.FC = () => {
     )
   }
 
-  if (isLoading) {
+  // 网络图节点通常已经带有标题、作者等基础信息；先展示这些内容，
+  // 不要让相关推荐和完整详情阻塞整个面板。
+  if (isLoading && !selectedPaper) {
     return (
       <div className="flex h-full flex-col overflow-y-auto">
         {headerBar}

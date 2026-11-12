@@ -63,6 +63,9 @@ export const api = {
   async details(paperId: string): Promise<PaperDetails> {
     return detailsResponseSchema.parse(await request('/details', { paper_id: paperId })).data as any
   },
+  async detailsRelated(paperId: string): Promise<Pick<PaperDetails, 'recommendations' | 'citation_contexts'>> {
+    return (await request('/details-related', { paper_id: paperId })).data as any
+  },
   async lineage(paperId: string): Promise<PaperLineage> {
     const parsed = lineageResponseSchema.parse(await request('/lineage', { paper_id: paperId })) as { data: PaperLineage }
     return parsed.data

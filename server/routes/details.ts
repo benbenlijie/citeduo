@@ -19,10 +19,18 @@ export async function detailsRoute(req: Request): Promise<Response> {
   }
   upsertPaper(paper)
 
+  return json({ data: { paper: normalizeS2Paper(paper), metrics: { h_index: 0, impact_factor: 0, altmetric_score: 0 } } })
+}
+
+export async function detailsRelatedRoute(req: Request): Promise<Response> {
+  const { paper_id } = await readJson<{ paper_id?: string }>(req)
+  if (!paper_id) throw new ApiError('MISSING_PAPER_ID', '论文ID不能为空')
+  const s2Path = await toS2Input(paper_id)
+
   const [recommendations, citationContexts] = await Promise.all([
-    getRecommendations(paper.paperId).then((r: any) => r.recommendedPapers ?? []).catch(() => []),
-    getCitationContexts(paper.paperId).then((r: any) => r.data ?? []).catch(() => []),
+    getRecommendations(s2Path).then((r: any) => r.recommendedPapers ?? []).catch(() => []),
+    getCitationContexts(s2Path).then((r: any) => r.data ?? []).catch(() => []),
   ])
 
-  return json({ data: { paper: normalizeS2Paper(paper), recommendations, citation_contexts: citationContexts, metrics: { h_index: 0, impact_factor: 0, altmetric_score: 0 } } })
+  return json({ data: { recommendations, citation_contexts: citationContexts } })
 }

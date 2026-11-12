@@ -2,7 +2,7 @@ import { config } from './config'
 import { json, handleError, ApiError } from './errors'
 import { recoverJobs } from './jobs'
 import { searchRoute } from './routes/search'
-import { detailsRoute } from './routes/details'
+import { detailsRoute, detailsRelatedRoute } from './routes/details'
 import { networkRoute } from './routes/network'
 import { jobRoute } from './routes/jobs'
 import { translateRoute } from './routes/translate'
@@ -227,6 +227,7 @@ async function dispatchApi(req: Request): Promise<Response> {
   if (p === '/api/analytics/pageview' && req.method === 'POST') return await analyticsPageViewRoute(req)
   if (p === '/api/search' && req.method === 'POST') return await searchRoute(req)
   if (p === '/api/details' && req.method === 'POST') return await detailsRoute(req)
+  if (p === '/api/details-related' && req.method === 'POST') return await detailsRelatedRoute(req)
   if (p === '/api/network' && req.method === 'POST') return await networkRoute(req)
   if (p === '/api/lineage' && req.method === 'POST') return await lineageRoute(req)
   if (p === '/api/connect' && req.method === 'POST') return await connectRoute(req)
