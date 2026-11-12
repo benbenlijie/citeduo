@@ -74,11 +74,20 @@ export const api = {
    * How two papers are connected. Longest request in the app: the server may
    * crawl outward from both endpoints, so there is no client-side timeout.
    */
-  async connect(fromId: string, toId: string): Promise<PaperConnection> {
+  async connect(fromId: string, toId: string, live?: boolean): Promise<PaperConnection> {
     const parsed = connectionResponseSchema.parse(
-      await request('/connect', { from_id: fromId, to_id: toId }),
+      await request('/connect', { from_id: fromId, to_id: toId, live }),
     )
     return parsed.data as unknown as PaperConnection
+  },
+  /**
+   * Instance defaults the UI must honour, e.g. whether `/connect` may go
+   * upstream. `CONNECT_LOCAL_ONLY` is an operator setting, so the client asks
+   * instead of guessing.
+   */
+  async getConfig(): Promise<{ connectLocalOnly: boolean }> {
+    const data = await request('/config')
+    return { connectLocalOnly: Boolean(data?.data?.connectLocalOnly) }
   },
   networkWithPolling,
 }

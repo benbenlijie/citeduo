@@ -11,6 +11,7 @@ import { aiSessionRoute, aiChatRoute, aiHistoryRoute, aiStreamRoute, aiAbortRout
 import { neighborsRoute } from './routes/neighbors'
 import { lineageRoute } from './routes/lineage'
 import { connectRoute } from './routes/connect'
+import { configRoute } from './routes/config'
 import { paperSearchRoute, paperSectionRoute } from './routes/paper'
 import { readerRoute } from './routes/reader'
 import { INTERNAL_TOKEN } from './internal-token'
@@ -244,6 +245,7 @@ async function dispatchApi(req: Request): Promise<Response> {
     return await aiStreamRoute(req, opencodeClient, sessionId)
   }
   if (p === '/api/llm/status' && req.method === 'GET') return await llmStatusRoute()
+  if (p === '/api/config' && req.method === 'GET') return await configRoute()
   if (p.startsWith('/api/jobs/') && req.method === 'GET') return await jobRoute(req, p.split('/').pop()!)
   if (p.startsWith('/api/neighbors/') && req.method === 'GET') return await neighborsRoute(p.split('/').pop()!)
   if (p.startsWith('/api/reader/') && req.method === 'GET') {

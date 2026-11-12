@@ -11,6 +11,7 @@ import {
   X,
 } from 'lucide-react'
 import { useUiStore } from '../store/useUiStore'
+import { api } from '../services/api'
 import { usePaperConnection } from '../hooks/usePaperConnection'
 import { useGraphSelection } from '../hooks/useGraphSelection'
 import { resolvePaperKey } from '../lib/paperKey'
@@ -231,10 +232,30 @@ const ConnectionPanel: React.FC = () => {
 
   const { selected: graphSelected, titleOf } = useGraphSelection()
 
+  // `null` means "follow the server": the toggle only overrides once the user
+  // touches it, and stays disabled when the operator turned upstream off
+  // (CONNECT_LOCAL_ONLY=1).
+  const [allowUpstream, setAllowUpstream] = useState<boolean | null>(null)
+  const [serverLocalOnly, setServerLocalOnly] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .getConfig()
+      .then((c) => !cancelled && setServerLocalOnly(c.connectLocalOnly))
+      .catch(() => !cancelled && setServerLocalOnly(null))
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const live = allowUpstream ?? (serverLocalOnly === null ? undefined : !serverLocalOnly)
+
   const query = usePaperConnection(
     connectionRequest?.fromId ?? null,
     connectionRequest?.toId ?? null,
     Boolean(connectionRequest),
+    live,
   )
 
   // React Query only hands back data for the *current* key, so a stale answer
@@ -341,6 +362,25 @@ const ConnectionPanel: React.FC = () => {
         </button>
         {fromId && toId && fromId === toId && (
           <p className="text-[11px] text-amber-400">起点与终点是同一篇论文，请选择两篇不同的论文。</p>
+        )}
+        {serverLocalOnly === true ? (
+          <p className="text-[11px] text-gray-500">本实例已关闭联网扩展（CONNECT_LOCAL_ONLY=1），只在本地缓存中检索。</p>
+        ) : (
+          <label className="flex items-start gap-2 text-[11px] leading-relaxed text-gray-400">
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-emerald-500"
+              checked={live ?? false}
+              disabled={serverLocalOnly === null}
+              onChange={(e) => setAllowUpstream(e.target.checked)}
+            />
+            <span>
+              允许联网扩展
+              <span className="text-gray-500">
+                ：本地找不到链路时，实时查询 Semantic Scholar。关闭后只用本地缓存，更快，但可能漏掉新论文。
+              </span>
+            </span>
+          </label>
         )}
       </div>
 
