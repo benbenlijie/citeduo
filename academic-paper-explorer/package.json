@@ -102,5 +102,10 @@
     "typescript-eslint": "^8.72.1",
     "vite": "^6.4.4",
     "vitest": "^5.1.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "source-map-js": "1.2.2"
+    }
   }
 }
