@@ -206,7 +206,7 @@ importers:
         version: 9.24.0
       '@testing-library/jest-dom':
         specifier: ^7.0.1
-        version: 7.0.1(@testing-library/dom@10.4.2)(vitest@5.0.2(@types/node@22.14.1)(jsdom@30.1.1)(vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1)))
+        version: 7.0.1(@testing-library/dom@10.4.2)(vitest@5.0.2(@types/node@26.6.5)(jsdom@30.1.1)(vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1)))
       '@testing-library/react':
         specifier: ^16.3.3
         version: 16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -214,8 +214,8 @@ importers:
         specifier: ^3.0.10
         version: 3.0.10
       '@types/node':
-        specifier: ^22.10.7
-        version: 22.14.1
+        specifier: ^26.6.5
+        version: 26.6.5
       '@types/react':
         specifier: ^18.3.12
         version: 18.3.20
@@ -230,7 +230,7 @@ importers:
         version: 0.186.0
       '@vitejs/plugin-react':
         specifier: ^4.3.4
-        version: 4.3.4(vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1))
+        version: 4.3.4(vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1))
       autoprefixer:
         specifier: 10.4.20
         version: 10.4.20(postcss@8.4.49)
@@ -263,10 +263,10 @@ importers:
         version: 8.29.1(eslint@9.24.0(jiti@1.21.7))(typescript@5.6.3)
       vite:
         specifier: ^6.4.3
-        version: 6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1)
+        version: 6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1)
       vitest:
         specifier: ^5.0.2
-        version: 5.0.2(@types/node@22.14.1)(jsdom@30.1.1)(vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1))
+        version: 5.0.2(@types/node@26.6.5)(jsdom@30.1.1)(vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1))
 
 packages:
 
@@ -370,6 +370,10 @@ packages:
 
   '@babel/runtime@7.27.0':
     resolution: {integrity: sha512-VtPOkrdPHZsKc/clNqyi9WUA8TINkZ4cGk63UUE3u4pmB2k+ZMQRDuIOagv8UVd6j7k0T3+RRIb7beKTebNbcw==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@7.29.10':
+    resolution: {integrity: sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA==}
     engines: {node: '>=6.9.0'}
 
   '@babel/runtime@7.29.7':
@@ -1772,8 +1776,8 @@ packages:
   '@types/ms@2.1.0':
     resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
-  '@types/node@22.14.1':
-    resolution: {integrity: sha512-u0HuPQwe/dHrItgHHpmw3N2fYCR6x4ivMNbPHRkBVP4CvN+kiRrKHWk3i8tXiO/joPwXLMYvF9TTF0eqgHIuOw==}
+  '@types/node@26.6.5':
+    resolution: {integrity: sha512-uMzsv9stDdofIZBx4UGh4Z9ZgXnGC9seRDscilBcTHAeOFk67MZg/k9bWVfO+bk4qZmG+l52hRnLwUiH2LnJTg==}
 
   '@types/prop-types@15.7.14':
     resolution: {integrity: sha512-gNMvNH49DJ7OJYv+KAKn0Xp45p8PLl6zo2YnvDIbTd4J6MER2BmWN49TG7n9LvkyihINxeKW8+3bfS2yDC9dzQ==}
@@ -2302,6 +2306,7 @@ packages:
   eslint@9.24.0:
     resolution: {integrity: sha512-eh/jxIEJyZrvbWRe4XuVclLPDYSYYYgLy5zXGGxD6j8zjSAxFEzI2fL/8xNq6O2yKqVt+eF2YhV+hxjV6UKXwQ==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -2451,6 +2456,7 @@ packages:
 
   glob@10.4.5:
     resolution: {integrity: sha512-7Bv8RF0k6xjo7d4A/PxYLbUCfb6c+Vpd2/mB2yRDlew7Jb5hEXiCD9ibfO7wpk8i4sevK6DFny9h7EYbM3/sHg==}
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
     hasBin: true
 
   globals@11.12.0:
@@ -3239,6 +3245,7 @@ packages:
   recharts@2.15.2:
     resolution: {integrity: sha512-xv9lVztv3ingk7V3Jf05wfAZbM9Q2umJzu5t/cfnAK7LUslNrGT7LPBr74G+ok8kSCeFMaePmWMg0rcYOnczTw==}
     engines: {node: '>=14'}
+    deprecated: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
     peerDependencies:
       react: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
       react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
@@ -3495,8 +3502,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@6.21.0:
-    resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
+  undici-types@8.9.0:
+    resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
   undici@8.11.2:
     resolution: {integrity: sha512-u4UB2/IrKdU6lFxumHmmo1a3fCQO5tzQllRorfoRS63txhrB7xTpSn1PftwC4qEHkOaqP95fCWW4lJzwErwzhQ==}
@@ -3881,6 +3888,8 @@ snapshots:
   '@babel/runtime@7.27.0':
     dependencies:
       regenerator-runtime: 0.14.1
+
+  '@babel/runtime@7.29.10': {}
 
   '@babel/runtime@7.29.7': {}
 
@@ -5103,7 +5112,7 @@ snapshots:
   '@testing-library/dom@10.4.2':
     dependencies:
       '@babel/code-frame': 7.29.7
-      '@babel/runtime': 7.29.7
+      '@babel/runtime': 7.29.10
       '@types/aria-query': 5.0.4
       aria-query: 5.3.0
       dom-accessibility-api: 0.5.16
@@ -5111,7 +5120,7 @@ snapshots:
       picocolors: 1.1.1
       pretty-format: 27.5.1
 
-  '@testing-library/jest-dom@7.0.1(@testing-library/dom@10.4.2)(vitest@5.0.2(@types/node@22.14.1)(jsdom@30.1.1)(vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1)))':
+  '@testing-library/jest-dom@7.0.1(@testing-library/dom@10.4.2)(vitest@5.0.2(@types/node@26.6.5)(jsdom@30.1.1)(vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1)))':
     dependencies:
       '@adobe/css-tools': 4.5.0
       '@testing-library/dom': 10.4.2
@@ -5121,7 +5130,7 @@ snapshots:
       picocolors: 1.1.1
       redent: 3.0.0
     optionalDependencies:
-      vitest: 5.0.2(@types/node@22.14.1)(jsdom@30.1.1)(vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1))
+      vitest: 5.0.2(@types/node@26.6.5)(jsdom@30.1.1)(vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1))
 
   '@testing-library/react@16.3.3(@testing-library/dom@10.4.2)(@types/react-dom@18.3.6(@types/react@18.3.20))(@types/react@18.3.20)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -5219,9 +5228,9 @@ snapshots:
 
   '@types/ms@2.1.0': {}
 
-  '@types/node@22.14.1':
+  '@types/node@26.6.5':
     dependencies:
-      undici-types: 6.21.0
+      undici-types: 8.9.0
 
   '@types/prop-types@15.7.14': {}
 
@@ -5341,25 +5350,25 @@ snapshots:
 
   '@ungap/structured-clone@1.4.0': {}
 
-  '@vitejs/plugin-react@4.3.4(vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1))':
+  '@vitejs/plugin-react@4.3.4(vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1))':
     dependencies:
       '@babel/core': 7.26.10
       '@babel/plugin-transform-react-jsx-self': 7.25.9(@babel/core@7.26.10)
       '@babel/plugin-transform-react-jsx-source': 7.25.9(@babel/core@7.26.10)
       '@types/babel__core': 7.20.5
       react-refresh: 0.14.2
-      vite: 6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1)
+      vite: 6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1)
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/mocker@5.0.2(vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1))':
+  '@vitest/mocker@5.0.2(vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1))':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       '@vitest/spy': 5.0.2
       estree-walker: 3.0.3
       magic-string: 1.4.2
     optionalDependencies:
-      vite: 6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1)
+      vite: 6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1)
 
   '@vitest/spy@5.0.2': {}
 
@@ -7294,7 +7303,7 @@ snapshots:
 
   typescript@5.6.3: {}
 
-  undici-types@6.21.0: {}
+  undici-types@8.9.0: {}
 
   undici@8.11.2: {}
 
@@ -7408,7 +7417,7 @@ snapshots:
       d3-time: 3.1.0
       d3-timer: 3.0.1
 
-  vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1):
+  vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1):
     dependencies:
       esbuild: 0.25.2
       fdir: 6.5.0(picomatch@4.0.7)
@@ -7417,15 +7426,15 @@ snapshots:
       rollup: 4.39.0
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 22.14.1
+      '@types/node': 26.6.5
       fsevents: 2.3.3
       jiti: 1.21.7
       yaml: 2.7.1
 
-  vitest@5.0.2(@types/node@22.14.1)(jsdom@30.1.1)(vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1)):
+  vitest@5.0.2(@types/node@26.6.5)(jsdom@30.1.1)(vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1)):
     dependencies:
       '@types/chai': 5.2.3
-      '@vitest/mocker': 5.0.2(vite@6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1))
+      '@vitest/mocker': 5.0.2(vite@6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1))
       chai: 6.2.2
       es-module-lexer: 2.3.2
       expect-type: 1.4.0
@@ -7436,10 +7445,10 @@ snapshots:
       tinybench: 6.2.0
       tinyexec: 1.3.1
       tinyglobby: 0.2.17
-      vite: 6.4.3(@types/node@22.14.1)(jiti@1.21.7)(yaml@2.7.1)
+      vite: 6.4.3(@types/node@26.6.5)(jiti@1.21.7)(yaml@2.7.1)
       why-is-node-running: 3.2.2
     optionalDependencies:
-      '@types/node': 22.14.1
+      '@types/node': 26.6.5
       jsdom: 30.1.1
     transitivePeerDependencies:
       - msw
