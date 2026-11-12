@@ -87,7 +87,7 @@ const GraphLegend: React.FC<Props> = ({
   }
 
   return (
-    <div className="absolute bottom-4 right-4 z-10 max-h-[calc(100%-2rem)] max-w-[264px] overflow-y-auto rounded-lg bg-gray-800/90 p-3 text-xs text-white">
+    <div className="absolute bottom-4 right-4 z-10 max-w-[264px] rounded-lg bg-gray-800/90 p-3 text-xs text-white">
       {colorMode === 'year' ? (
         <div>
           <div className="mb-1 text-gray-300">年份</div>
@@ -150,7 +150,7 @@ const GraphLegend: React.FC<Props> = ({
           {detailCluster && clusters.length > 1 && (
             // A popover, not an in-flow block: growing the legend on hover would
             // move the hovered row out from under the pointer and flicker.
-            <div className="pointer-events-none absolute bottom-[calc(100%+8px)] right-0 w-64 rounded bg-gray-900/95 p-2 text-[10px] leading-relaxed shadow-lg">
+            <div className="pointer-events-none absolute bottom-[calc(100%+8px)] right-0 w-64 rounded border border-gray-700 bg-gray-900 p-2 text-[10px] leading-relaxed shadow-lg">
               <div className="font-medium text-gray-200">{detailCluster.label}</div>
               <div className="text-gray-400">
                 {detailCluster.size} 篇 · {Math.round(detailCluster.share * 100)}%

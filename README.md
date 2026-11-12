@@ -12,7 +12,7 @@
 
 The public demo is open without a token. It has a daily visitor/request budget and returns a friendly `429` when the budget is exhausted, so a burst of traffic cannot run up API or LLM bills. Run CiteDuo locally for unlimited use.
 
-![The citation network, live](docs/images/graph-demo.gif)
+![Cluster legend: hover a topic to preview it, click to pin it](docs/images/graph-demo.gif)
 
 Self-hosted and local-first: one Bun process, one SQLite file, no account, no cloud.
 
@@ -30,7 +30,7 @@ CiteDuo is built around that second question, and around owning your own data.
 | "How are these two papers connected?" | ❌ | ✅ an explained path, hop by hop, with alternatives |
 | Runs on your own machine | ❌ | ✅ single Bun process + SQLite file |
 | Read + translate the paper in-app | ❌ | ✅ arXiv HTML reader with bilingual mode |
-| Ask an AI that has actually read the paper | ❌ | ✅ retrieval over the full text before it answers |
+| Ask an AI that has actually read the paper | ❌ | ✅ the paper's text is supplied with the question |
 | Notes, favourites, collections | limited | ✅ local, exportable |
 
 ## How two papers are related
@@ -52,10 +52,11 @@ Pick any two papers and the app searches for the chain that links them, then exp
 ![Citation network graph](docs/images/network-graph.png)
 
 - **Search** across Semantic Scholar and OpenAlex, merged and de-duplicated by DOI/arXiv id, with locally remembered keyword history.
-- **Interactive citation network** — PageRank-weighted nodes, Louvain community clustering, per-edge-type visibility toggles (hover an edge type for a second to preview its links to the root paper), and a timeline you can scrub or play back to see a field grow.
+- **Interactive citation network** — PageRank-weighted nodes, Louvain communities named from their distinguishing title terms, with a legend that shows each cluster's paper count and, on hover, its year span, dominant field and representative papers (hover to isolate, click to pin), per-edge-type visibility toggles (hover an edge type for a second to preview its links to the root paper), and a timeline you can scrub or play back to see a field grow.
 - **2D canvas or 3D** force graph, whichever suits the question.
 - **Node context menu**: rebuild the graph from here, re-search by title, expand this node, add to comparison, open the original.
 - **Multi-source relation edges**: citations and references, Semantic Scholar recommendations, OpenAlex related works (with an arXiv title fallback), bibliographic coupling, and SPECTER2 embedding kNN — normalised so the same paper never appears twice.
+- **Relevance-filtered graph** — semantic neighbours are capped per paper, weak coupling edges are filtered out, and citing-side fetches are bounded with a retry on rate limits, so a dense field does not collapse into a hairball.
 - **Graph caching** of nodes, edges *and* layout, so reopening a network is instant instead of re-running the simulation.
 
 ### Compare
@@ -66,9 +67,9 @@ Two papers side by side, each with its own citation graph, sharing the filters a
 
 ### Read
 
-- **In-app reading** of arXiv HTML with a section outline; papers without an HTML build fall back to abs/PDF.
+- **In-app reading** of arXiv HTML with a section outline; papers without an HTML build fall back to abs/PDF. The reader opens in a new tab, and Back returns to the paper list when there is no in-app history.
 - **Immersive bilingual translation** per paragraph, with any OpenAI-compatible provider, or entirely in-browser via the built-in Translator API.
-- **AI reading assistant** driven by a local [`opencode`](https://opencode.ai) agent. It calls retrieval tools (`paper_search`, `paper_section`) before answering and streams what it is doing ("searching…", "reading section 3"), so answers come from the paper rather than the model's memory.
+- **AI reading assistant** driven by a local [`opencode`](https://opencode.ai) agent. The current paper's extracted text is supplied with each question as clearly marked context; retrieval tools (`paper_search`, `paper_section`) fill any gaps and stream their activity ("searching…", "reading section 3"), so answers come from the paper rather than the model's memory.
 - **Reading queue and progress** — to-read / reading / done, plus scroll progress per paper.
 - **Highlights and annotations** in four colours, stored locally.
 
@@ -80,7 +81,7 @@ Two papers side by side, each with its own citation graph, sharing the filters a
 
 - **Notes, favourites, collections** and saved searches, all local.
 - **Import/export**: PNG of the current view, JSON, BibTeX, CSV, or the full crawled network as JSON.
-- **Shareable deep links.** The paper, filters, encoding, view mode and the compared pair all round-trip through the URL — including `?from=<id>&to=<id>`, which re-runs a relation analysis for whoever opens it.
+- **Shareable deep links.** The paper, filters, encoding, view mode and the compared pair all round-trip through the URL — including `?from=<id>&to=<id>`, which re-runs a relation analysis for whoever opens it. A bare `?paper=<id>` link starts from the normal 2-hop / 100-node graph instead of guessing an adaptive size from metadata it does not have.
 - **Optional access token**, or a public-demo daily visitor/request budget if you want the GitHub demo open to everyone.
 
 ## Quick start
@@ -257,7 +258,7 @@ Ideas and bug reports are welcome in [issues](https://github.com/benbenlijie/cit
 
 ## Related work
 
-This is not the first tool in this space, and it does not try to replace the good ones. [Connected Papers](https://www.connectedpapers.com/), [Litmaps](https://www.litmaps.com/), [ResearchRabbit](https://www.researchrabbit.ai/) and [Inciteful](https://inciteful.xyz/) all do citation-neighbourhood exploration well. CiteDuo deliberately differs in three ways: it answers for a **pair** of papers with a ranked, explained path rather than only drawing a neighbourhood; it runs entirely on your own machine instead of as an account-based web service; and its assistant has to retrieve the paper text before it answers.
+This is not the first tool in this space, and it does not try to replace the good ones. [Connected Papers](https://www.connectedpapers.com/), [Litmaps](https://www.litmaps.com/), [ResearchRabbit](https://www.researchrabbit.ai/) and [Inciteful](https://inciteful.xyz/) all do citation-neighbourhood exploration well. CiteDuo deliberately differs in three ways: it answers for a **pair** of papers with a ranked, explained path rather than only drawing a neighbourhood; it runs entirely on your own machine instead of as an account-based web service; and its assistant answers from the paper text supplied with the question, retrieving only what is missing.
 
 ## Contributing
 
