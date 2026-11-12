@@ -123,9 +123,10 @@ describe('reader source fallbacks', () => {
   it('describes each fallback source', () => {
     expect(sourceNotice('html')).toBeNull()
     expect(sourceNotice(null)).toBeNull()
+    // jsdom reports en-US, so the English table is the default here.
     expect(sourceNotice('ar5iv')).toMatch(/ar5iv/)
     expect(sourceNotice('pdf')).toMatch(/PDF/)
-    expect(sourceNotice('abstract')).toMatch(/摘要/)
+    expect(sourceNotice('abstract')).toMatch(/abstract/i)
   })
 
   it('classifies load failures by cause', () => {
@@ -135,8 +136,8 @@ describe('reader source fallbacks', () => {
     expect(classifyReaderError(timeout, http)).toBe('timeout')
     expect(classifyReaderError(new TypeError('Failed to fetch'), http)).toBe('network')
     expect(classifyReaderError(http, new TypeError('Failed to fetch'))).toBe('network')
-    expect(readerErrorMessage('timeout')).toMatch(/超时/)
-    expect(readerErrorMessage('network')).toMatch(/网络/)
+    expect(readerErrorMessage('timeout')).toMatch(/timed out/i)
+    expect(readerErrorMessage('network')).toMatch(/network/i)
     expect(readerErrorMessage('no-html')).toMatch(/HTML/)
   })
 })

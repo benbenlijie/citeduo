@@ -265,7 +265,7 @@ describe('ReaderPage', () => {
     const frame = await screen.findByTestId('reader-frame')
     expect(frame.getAttribute('srcdoc')).toContain('Text pulled from the PDF.')
     expect(screen.getByRole('button', { name: 'Introduction' })).toBeInTheDocument()
-    expect(screen.getByText(/PDF 自动抽取/)).toBeInTheDocument()
+    expect(screen.getByText(/extracted from the PDF/)).toBeInTheDocument()
   })
 
   it('explains a policy-withheld paper instead of blaming the fetch', async () => {
@@ -287,8 +287,8 @@ describe('ReaderPage', () => {
     renderReader()
 
     await screen.findByTestId('reader-frame')
-    expect(screen.getByText(/按 arXiv 的使用条款不缓存也不对外提供论文全文/)).toBeInTheDocument()
-    expect(screen.queryByText(/仅显示摘要/)).not.toBeInTheDocument()
+    expect(screen.getByText(/does not cache or serve third-party full text/)).toBeInTheDocument()
+    expect(screen.queryByText(/only the abstract is shown/)).not.toBeInTheDocument()
   })
 
   it('retries through the server with refresh=1', async () => {

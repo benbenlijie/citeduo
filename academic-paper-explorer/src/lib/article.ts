@@ -1,3 +1,5 @@
+import { readerCopy } from './copy'
+
 const ARXIV_BASE = 'https://arxiv.org'
 const ARXIV_HTML_DIR = `${ARXIV_BASE}/html/`
 const AR5IV_BASE = 'https://ar5iv.labs.arxiv.org'
@@ -171,13 +173,14 @@ export function isPaperSource(v: unknown): v is PaperSource {
 
 /** Human-readable note for a fallback source, or null for arXiv's own HTML. */
 export function sourceNotice(source: PaperSource | null): string | null {
+  const copy = readerCopy()
   switch (source) {
     case 'ar5iv':
-      return 'arXiv 未提供该论文的 HTML 版，当前显示 ar5iv 转换版，排版可能与原文略有差异。'
+      return copy.ar5ivNotice
     case 'pdf':
-      return '该论文没有可用的 HTML 版，当前文本由 PDF 自动抽取，公式、图表和版式可能缺失。'
+      return copy.pdfNotice
     case 'abstract':
-      return '该论文的全文无法获取，当前仅显示摘要。'
+      return copy.abstractNotice
     default:
       return null
   }
@@ -186,7 +189,7 @@ export function sourceNotice(source: PaperSource | null): string | null {
 /** Notice for an instance that withholds third-party full text by policy — a
  *  deliberate choice, not a failed fetch, so it says why and where to go. */
 export function withheldNotice(): string {
-  return '这个实例对他人开放，按 arXiv 的使用条款不缓存也不对外提供论文全文，因此这里只显示摘要与元数据。阅读原文请点右上角的 arXiv 链接。'
+  return readerCopy().withheldNotice
 }
 
 export type ReaderErrorKind = 'no-html' | 'timeout' | 'network'
@@ -194,13 +197,14 @@ export type ReaderErrorKind = 'no-html' | 'timeout' | 'network'
 /** Message shown when every source failed, split by cause so "no HTML build"
  *  is not confused with a blocked/slow network. */
 export function readerErrorMessage(kind: ReaderErrorKind): string {
+  const copy = readerCopy()
   switch (kind) {
     case 'timeout':
-      return '网络请求超时，arXiv 或服务器响应过慢。'
+      return copy.timeoutError
     case 'network':
-      return '网络受限，无法访问 arXiv 或本地服务。'
+      return copy.networkError
     default:
-      return '该论文没有可用的 HTML 版，服务端也未能抽取到全文。'
+      return copy.noHtmlError
   }
 }
 
