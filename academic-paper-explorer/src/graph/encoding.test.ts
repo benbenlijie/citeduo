@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { colorFor, sizeFor, withAlpha, EDGE_COLORS } from './encoding'
+import { colorFor, sizeFor, withAlpha, EDGE_COLORS, isDirectedEdge, linkWidthFor } from './encoding'
 import type { NetworkNode } from '../types/domain'
 
 const node = (over: Partial<NetworkNode> = {}): NetworkNode => ({
@@ -60,5 +60,22 @@ describe('EDGE_COLORS', () => {
     const colours = [EDGE_COLORS.reference, EDGE_COLORS.citation, EDGE_COLORS.related, EDGE_COLORS.coupling]
     expect(colours.every((c) => /^#[0-9a-f]{6}$/i.test(c))).toBe(true)
     expect(new Set(colours).size).toBe(4)
+  })
+})
+
+describe('linkWidthFor and isDirectedEdge', () => {
+  it('keeps heavy bibliographic coupling edges bounded instead of scaling linearly to dozens of pixels', () => {
+    const light = linkWidthFor({ type: 'coupling', weight: 3 })
+    const heavy = linkWidthFor({ type: 'coupling', weight: 61 })
+    expect(heavy).toBeGreaterThan(light)
+    expect(heavy).toBeLessThanOrEqual(2.8)
+  })
+
+  it('marks only genuine citation and reference edges as directed', () => {
+    expect(isDirectedEdge('reference')).toBe(true)
+    expect(isDirectedEdge('citation')).toBe(true)
+    expect(isDirectedEdge('coupling')).toBe(false)
+    expect(isDirectedEdge('related')).toBe(false)
+    expect(isDirectedEdge('semantic')).toBe(false)
   })
 })

@@ -64,6 +64,18 @@ AI_ACCESS_TOKEN=一段足够长的随机串
 - 首次打开 `/ai-login`（例如 `https://你的域名/ai-login`；子路径部署加前缀，如 `/papers/ai-login`）输入口令。口令只通过 POST body 提交，写入 `cp_ai` Cookie，不会出现在 URL、浏览器历史或 nginx 访问日志里；API 调用也可以带 `Authorization: Bearer <token>`。
 - 未配置 `openai` provider 或 opencode 不可用时，`POST /api/ai/session` 返回 `503`；翻译功能不受影响。
 - 本地 spawn 模式需要主机装有 `opencode`（本特性按 1.18.35 验证），运行时隔离在 `data/opencode-runtime/`；服务启动时会自动生成随机 `OPENCODE_SERVER_PASSWORD`，不再裸奔。
+- 每次问答会按会话绑定的论文，直接把标题、arXiv 编号和已抽取的正文作为独立上下文提供给 agent；优先复用阅读器缓存，不需要 agent 自己上网找当前论文。正文上下文最多 60,000 字符，超长时明确标注截断，并由 `paper_search` / `paper_section` 补充缺失章节。这两个工具是站内取文，不是全网搜索。
+- `PAPER_CONTENT_MODE=off` 时只提供摘要并标明全文受策略限制；浏览器能直接显示 arXiv HTML，不代表服务端也有权缓存、提供全文。需要全文问答时，请先确认论文许可与部署用途，再显式设置 `PAPER_CONTENT_MODE=full`。不要通过放开 agent 的联网或文件系统权限来绕过该策略。
+
+#### 更新 AI 上下文行为
+
+更新应用后也需要更新 opencode 的 agent 配置。本地 spawn 模式重启应用即可；设置 `OPENCODE_BASE_URL`、使用下方独立容器的部署，还要重新构建并创建容器：
+
+```bash
+docker compose -f docker-compose.opencode.yml up -d --build
+```
+
+只重启 Web 服务会保留旧容器中的「必须先检索」提示词。论文内容、语言与选段作为带应用标记的独立文本上下文发送，不会铺满聊天历史，也不依赖 Web 与 agent 共享文件目录。若将实例从全文模式改为 `off`，旧会话可能已包含此前发送的全文；需要同时清理旧 AI 会话存储，模式切换不会撤回已有内容。
 
 #### 方案 B（推荐）：opencode 跑在独立容器
 

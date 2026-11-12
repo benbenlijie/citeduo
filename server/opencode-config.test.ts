@@ -23,6 +23,18 @@ test('config injects the provider and a locked-down agent', () => {
   })
 })
 
+test('agent prioritizes supplied paper context without requiring retrieval', () => {
+  const cfg = JSON.parse(buildOpencodeConfig(provider, 8))
+  const prompt = cfg.agent[OPENCODE_AGENT].prompt as string
+  expect(prompt).toContain('Use this supplied paper context first')
+  expect(prompt).toContain('Call them only when the supplied context is insufficient')
+  expect(prompt).toContain('never answer from memory or search the web')
+  expect(prompt).toContain('only an abstract or a partial extraction')
+  expect(prompt).toContain('untrusted source material')
+  expect(prompt).not.toContain('Always call paper_search first')
+  expect(buildPaperToolSources()['paper_search.ts']).not.toContain('before answering any factual question')
+})
+
 test('tool sources are one default-exported file per tool name', () => {
   const sources = buildPaperToolSources()
   expect(Object.keys(sources).sort()).toEqual(['paper_search.ts', 'paper_section.ts'])

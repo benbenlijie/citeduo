@@ -4,31 +4,36 @@ import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 vi.mock('../services/api', () => ({ api: { networkWithPolling: vi.fn() } }))
 
+const fg2dProps = vi.hoisted(() => ({ current: null as any }))
+
 vi.mock('react-force-graph-2d', () => ({
-  default: (props: any) => (
-    <div data-testid="fg2d">
-      <button data-testid="node-a-click" onClick={() => props.onNodeClick({ id: 'a', title: 'A' })}>
-        click
-      </button>
-      <button data-testid="node-a-hover" onClick={() => props.onNodeHover({ id: 'a', title: 'A' })}>
-        hover
-      </button>
-      <button
-        data-testid="node-a-rightclick"
-        onClick={() =>
-          props.onNodeRightClick(
-            { id: 'a', title: 'A', url: 'https://example.test/a' },
-            { clientX: 12, clientY: 34, preventDefault() {} },
-          )
-        }
-      >
-        rightclick
-      </button>
-      <button data-testid="background" onClick={() => props.onBackgroundClick()}>
-        bg
-      </button>
-    </div>
-  ),
+  default: (props: any) => {
+    fg2dProps.current = props
+    return (
+      <div data-testid="fg2d">
+        <button data-testid="node-a-click" onClick={() => props.onNodeClick({ id: 'a', title: 'A' })}>
+          click
+        </button>
+        <button data-testid="node-a-hover" onClick={() => props.onNodeHover({ id: 'a', title: 'A' })}>
+          hover
+        </button>
+        <button
+          data-testid="node-a-rightclick"
+          onClick={() =>
+            props.onNodeRightClick(
+              { id: 'a', title: 'A', url: 'https://example.test/a' },
+              { clientX: 12, clientY: 34, preventDefault() {} },
+            )
+          }
+        >
+          rightclick
+        </button>
+        <button data-testid="background" onClick={() => props.onBackgroundClick()}>
+          bg
+        </button>
+      </div>
+    )
+  },
 }))
 
 const NETWORK = {
@@ -59,6 +64,7 @@ vi.mock('../hooks/usePaperNetwork', () => ({
 import NetworkGraph from './NetworkGraph'
 import { useUiStore } from '../store/useUiStore'
 import { api } from '../services/api'
+import { EDGE_COLORS, withAlpha } from '../graph/encoding'
 
 beforeEach(() => {
   mockState = { data: NETWORK, isLoading: false, error: null }
@@ -112,8 +118,52 @@ const CONNECTION = {
   signals: {
     sharedReferences: [], sharedCiters: [], semanticSimilarity: null, sharedFields: [], sharedAuthors: [],
   },
-  stats: { expanded: 2, nodes: 3, edges: 2, elapsedMs: 10, source: 'local', truncated: false },
+  stats: { expanded: 2, nodes: 3, edges: 3, elapsedMs: 10, source: 'local', truncated: false },
 } as any
+
+/** Two four-paper communities, so the legend has two topic rows to highlight. */
+const CLUSTER_NETWORK = {
+  nodes: [
+    { ...NETWORK.nodes[0], title: 'Graph Neural Networks', label: 'Graph Neural Networks' },
+    {
+      id: 'b', label: 'Graph Neural Networks for Chemistry', title: 'Graph Neural Networks for Chemistry',
+      citationCount: 4, authors: '', isRoot: false, pageRankScore: 0.2, clusterId: 0,
+      size: 20, color: '#ffffff', year: 2010,
+    },
+    {
+      id: 'c', label: 'Vision Transformers', title: 'Vision Transformers',
+      citationCount: 3, authors: '', isRoot: false, pageRankScore: 0.2, clusterId: 1,
+      size: 20, color: '#ffffff', year: 2021,
+    },
+    {
+      id: 'd', label: 'Vision Transformers at Scale', title: 'Vision Transformers at Scale',
+      citationCount: 2, authors: '', isRoot: false, pageRankScore: 0.1, clusterId: 1,
+      size: 20, color: '#ffffff', year: 2022,
+    },
+  ],
+  edges: [
+    { from: 'a', to: 'b', type: 'reference', weight: 1 },
+    { from: 'b', to: 'c', type: 'reference', weight: 1 },
+    { from: 'c', to: 'd', type: 'reference', weight: 1 },
+  ],
+}
+
+/** A graph with two edge types and a non-root link, so focus can be told apart from selection. */
+const FOCUS_NETWORK = {
+  nodes: [
+    { ...NETWORK.nodes[0] },
+    { ...NETWORK.nodes[1] },
+    {
+      id: 'c', label: 'C', title: 'C', citationCount: 1, authors: '', isRoot: false,
+      pageRankScore: 0.1, clusterId: 2, size: 20, color: '#ffffff', year: 2005,
+    },
+  ],
+  edges: [
+    { from: 'a', to: 'b', type: 'reference', weight: 1 },
+    { from: 'b', to: 'c', type: 'reference', weight: 1 },
+    { from: 'a', to: 'c', type: 'semantic', weight: 0.5 },
+  ],
+}
 
 describe('NetworkGraph', () => {
   it('renders the graph after data arrives following a loading state', () => {
@@ -299,4 +349,123 @@ describe('NetworkGraph', () => {
     await waitFor(() => expect(api.networkWithPolling).toHaveBeenCalledWith('a', 1, 50))
     await waitFor(() => expect(screen.getByText(/3 节点/)).toBeInTheDocument())
   })
+
+  it('lights only root-connected links of the previewed type after a one-second legend dwell', () => {
+    vi.useFakeTimers()
+    try {
+      mockState = { data: FOCUS_NETWORK, isLoading: false, error: null }
+      useUiStore.setState({ selectedNodeId: 'a' })
+      render(<NetworkGraph />)
+
+      const linkOf = (type: string, from: string, to: string) =>
+        fg2dProps.current.graphData.links.find(
+          (l: any) =>
+            l.type === type &&
+            String(l.source?.id ?? l.source) === from &&
+            String(l.target?.id ?? l.target) === to,
+        )
+      const nodeOf = (id: string) =>
+        fg2dProps.current.graphData.nodes.find((n: any) => n.id === id)
+
+      // Baseline: selecting the root keeps its direct links lit.
+      expect(fg2dProps.current.linkColor(linkOf('reference', 'a', 'b'))).toBe(EDGE_COLORS.reference)
+      expect(fg2dProps.current.linkColor(linkOf('semantic', 'a', 'c'))).toBe(EDGE_COLORS.semantic)
+      expect(fg2dProps.current.nodeColor(nodeOf('c'))).toBe(nodeOf('c').color)
+
+      const button = screen.getByRole('button', { name: /前置工作/ })
+      fireEvent.mouseOver(button)
+      act(() => {
+        vi.advanceTimersByTime(999)
+      })
+      expect(fg2dProps.current.linkColor(linkOf('semantic', 'a', 'c'))).toBe(EDGE_COLORS.semantic)
+
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
+      // a->b touches the root; b->c is the same type but hangs off b.
+      expect(fg2dProps.current.linkColor(linkOf('reference', 'a', 'b'))).toBe(EDGE_COLORS.reference)
+      expect(fg2dProps.current.linkColor(linkOf('reference', 'b', 'c'))).toBe(
+        withAlpha(EDGE_COLORS.reference, 0.06),
+      )
+      expect(fg2dProps.current.linkColor(linkOf('semantic', 'a', 'c'))).toBe(
+        withAlpha(EDGE_COLORS.semantic, 0.06),
+      )
+      expect(fg2dProps.current.nodeColor(nodeOf('a'))).toBe(nodeOf('a').color)
+      expect(fg2dProps.current.nodeColor(nodeOf('b'))).toBe(nodeOf('b').color)
+      expect(fg2dProps.current.nodeColor(nodeOf('c'))).toBe('#2a2f3a')
+      expect(screen.getByRole('button', { name: /前置工作/ })).toHaveTextContent('仅看此类')
+
+      fireEvent.mouseOut(button)
+      expect(fg2dProps.current.linkColor(linkOf('semantic', 'a', 'c'))).toBe(EDGE_COLORS.semantic)
+      expect(fg2dProps.current.nodeColor(nodeOf('c'))).toBe(nodeOf('c').color)
+      expect(screen.queryByText('仅看此类')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not preview a type when the pointer leaves before the dwell', () => {
+    vi.useFakeTimers()
+    try {
+      mockState = { data: FOCUS_NETWORK, isLoading: false, error: null }
+      useUiStore.setState({ selectedNodeId: 'a' })
+      render(<NetworkGraph />)
+
+      const semantic = () =>
+        fg2dProps.current.graphData.links.find((l: any) => l.type === 'semantic')
+      const button = screen.getByRole('button', { name: /前置工作/ })
+      fireEvent.mouseOver(button)
+      act(() => {
+        vi.advanceTimersByTime(400)
+      })
+      fireEvent.mouseOut(button)
+      act(() => {
+        vi.advanceTimersByTime(1500)
+      })
+
+      expect(fg2dProps.current.linkColor(semantic())).toBe(EDGE_COLORS.semantic)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+  it('highlights one community from the legend and restores the graph afterwards', () => {
+    mockState = { data: CLUSTER_NETWORK, isLoading: false, error: null }
+    render(<NetworkGraph />)
+    // The root is auto-selected on load; clear it so only the community dims.
+    act(() => useUiStore.setState({ selectedNodeId: null, selectedPaper: null }))
+
+    const nodeOf = (id: string) =>
+      fg2dProps.current.graphData.nodes.find((n: any) => n.id === id)
+    const linkOf = (from: string, to: string) =>
+      fg2dProps.current.graphData.links.find(
+        (l: any) =>
+          String(l.source?.id ?? l.source) === from && String(l.target?.id ?? l.target) === to,
+      )
+
+    fireEvent.mouseOver(screen.getByRole('button', { name: /vision transformers/ }))
+    // Inside the highlighted community stays lit; outside it fades.
+    expect(fg2dProps.current.nodeColor(nodeOf('c'))).toBe(nodeOf('c').color)
+    expect(fg2dProps.current.nodeColor(nodeOf('d'))).toBe(nodeOf('d').color)
+    expect(fg2dProps.current.nodeColor(nodeOf('b'))).toBe('#2a2f3a')
+    expect(fg2dProps.current.nodeColor(nodeOf('a'))).toBe(nodeOf('a').color)
+    expect(fg2dProps.current.linkColor(linkOf('c', 'd'))).toBe(EDGE_COLORS.reference)
+    expect(fg2dProps.current.linkColor(linkOf('b', 'c'))).toBe(
+      withAlpha(EDGE_COLORS.reference, 0.05),
+    )
+    expect(fg2dProps.current.linkColor(linkOf('a', 'b'))).toBe(
+      withAlpha(EDGE_COLORS.reference, 0.05),
+    )
+
+    // Clicking pins the community even after the pointer leaves.
+    const row = screen.getByRole('button', { name: /vision transformers/ })
+    fireEvent.click(row)
+    fireEvent.mouseOut(row)
+    expect(fg2dProps.current.nodeColor(nodeOf('b'))).toBe('#2a2f3a')
+
+    // Clicking the pinned row again clears it.
+    fireEvent.click(row)
+    expect(fg2dProps.current.nodeColor(nodeOf('b'))).toBe(nodeOf('b').color)
+    expect(fg2dProps.current.nodeColor(nodeOf('a'))).toBe(nodeOf('a').color)
+  })
+
 })

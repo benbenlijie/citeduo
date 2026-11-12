@@ -11,10 +11,18 @@ export const EDGE_COLORS: Record<EdgeType, string> = {
   semantic: '#2dd4bf',
 }
 
+const FALLBACK_COLOR = '#94a3b8'
+
 const CLUSTER_PALETTE = [
   '#22d3ee', '#a3e635', '#fb7185', '#fbbf24', '#818cf8',
   '#34d399', '#f472b6', '#60a5fa', '#fb923c', '#c084fc',
 ]
+
+/** Colour for a community id; shared by the graph and the cluster legend. */
+export function clusterColor(clusterId: number): string {
+  if (!Number.isFinite(clusterId)) return FALLBACK_COLOR
+  return CLUSTER_PALETTE[Math.abs(Math.trunc(clusterId)) % CLUSTER_PALETTE.length]
+}
 
 const FIELD_PALETTE = [
   '#38bdf8', '#4ade80', '#facc15', '#f472b6',
@@ -22,7 +30,6 @@ const FIELD_PALETTE = [
 ]
 
 const MIN_YEAR = 1970
-const FALLBACK_COLOR = '#94a3b8'
 const MIN_RADIUS = 5
 const MAX_RADIUS = 18
 
@@ -45,7 +52,7 @@ export function fieldColor(fields?: string[]): string {
 export function colorFor(node: NetworkNode, mode: ColorMode): string {
   switch (mode) {
     case 'cluster':
-      return CLUSTER_PALETTE[Math.abs(node.clusterId) % CLUSTER_PALETTE.length]
+      return clusterColor(node.clusterId)
     case 'year':
       return yearColor(node.year)
     case 'field':
@@ -68,4 +75,31 @@ export function withAlpha(hex: string, alpha: number): string {
   const g = parseInt(h.slice(2, 4), 16)
   const b = parseInt(h.slice(4, 6), 16)
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+export function isDirectedEdge(type: EdgeType): boolean {
+  return type === 'reference' || type === 'citation'
+}
+
+const MAX_LINK_WIDTH = 2.8
+
+export function linkWidthFor(edge: { type: EdgeType; weight: number }): number {
+  const w = Number.isFinite(edge.weight) && edge.weight > 0 ? edge.weight : 1
+  let raw: number
+  switch (edge.type) {
+    case 'reference':
+    case 'citation':
+      raw = 1.4
+      break
+    case 'coupling':
+      raw = 0.75 + Math.log2(w + 1) * 0.3
+      break
+    case 'related':
+      raw = 0.75 + Math.log2(w + 1) * 0.25
+      break
+    case 'semantic':
+      raw = 0.65 + Math.max(0, Math.min(1, w)) * 0.65
+      break
+  }
+  return Math.max(0.5, Math.min(MAX_LINK_WIDTH, raw))
 }

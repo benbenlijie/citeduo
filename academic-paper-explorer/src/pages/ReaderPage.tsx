@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, ExternalLink, FileText, Loader2, Languages, Sparkles } from 'lucide-react'
 import {
   arxivAbsUrl,
@@ -84,6 +84,16 @@ const ReaderPage: React.FC = () => {
   const readingEntry = useReadingStore((s) => s.entries[readingKey])
   const setReadingStatus = useReadingStore((s) => s.setStatus)
   const navigate = useNavigate()
+  const location = useLocation()
+  // react-router labels the first entry of a session with the "default" key.
+  // A reader opened from a blank new tab (or an external link) has nothing
+  // in-app to go back to, so stepping through browser history would land on
+  // the blank page; go to the papers page instead.
+  const canGoBack = location.key !== 'default'
+  const goBack = useCallback(() => {
+    if (canGoBack) navigate(-1)
+    else navigate('/', { replace: true })
+  }, [canGoBack, navigate])
   const frameRef = useRef<HTMLIFrameElement>(null)
   const cancelRef = useRef(false)
   const translatingRef = useRef(false)
@@ -518,7 +528,7 @@ const ReaderPage: React.FC = () => {
         <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={goBack}
             className="flex items-center gap-1 rounded px-2 py-1 text-sm hover:bg-gray-700"
           >
             <ArrowLeft className="h-4 w-4" /> 返回

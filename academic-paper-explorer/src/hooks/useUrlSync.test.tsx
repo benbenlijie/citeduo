@@ -75,6 +75,17 @@ describe('useUrlSync', () => {
     expect(search).toContain('view=3d')
   })
 
+  it('pins the normal default graph params for a bare shared link', () => {
+    // `?paper=` alone carries no year/citations, so the stub must not trigger
+    // adaptive sizing: the recipient should get the same 2/100 graph as the
+    // sender's search result, not the 1/50 used for old / highly cited papers.
+    renderAt('/?paper=SHARED')
+    const search = screen.getByTestId('search').textContent ?? ''
+    expect(search).toContain('d=2')
+    expect(search).toContain('mn=100')
+    expect(useUiStore.getState().graphDepth).toBeNull()
+  })
+
   it('re-hydrates on back navigation without pushing extra history', () => {
     renderAt('/?paper=A&view=3d')
     act(() => nav('/?paper=B&view=3d'))
@@ -118,8 +129,8 @@ describe('useUrlSync', () => {
       })
     })
     const search = screen.getByTestId('search').textContent ?? ''
-    // Non-adaptive paper: depth 2 / maxNodes 100 must be pinned, otherwise the
-    // recipient's stub paper makes resolveNetworkParams fall back to 1 / 50.
+    // Non-adaptive paper: depth 2 / maxNodes 100 must be pinned, so a recipient
+    // opening the link never has to re-derive the parameters from a stub.
     expect(search).toContain('d=2')
     expect(search).toContain('mn=100')
   })

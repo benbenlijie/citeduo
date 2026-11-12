@@ -52,7 +52,7 @@ Pick any two papers and the app searches for the chain that links them, then exp
 ![Citation network graph](docs/images/network-graph.png)
 
 - **Search** across Semantic Scholar and OpenAlex, merged and de-duplicated by DOI/arXiv id, with locally remembered keyword history.
-- **Interactive citation network** — PageRank-weighted nodes, Louvain community clustering, per-edge-type visibility toggles, and a timeline you can scrub or play back to see a field grow.
+- **Interactive citation network** — PageRank-weighted nodes, Louvain community clustering, per-edge-type visibility toggles (hover an edge type for a second to preview its links to the root paper), and a timeline you can scrub or play back to see a field grow.
 - **2D canvas or 3D** force graph, whichever suits the question.
 - **Node context menu**: rebuild the graph from here, re-search by title, expand this node, add to comparison, open the original.
 - **Multi-source relation edges**: citations and references, Semantic Scholar recommendations, OpenAlex related works (with an arXiv title fallback), bibliographic coupling, and SPECTER2 embedding kNN — normalised so the same paper never appears twice.

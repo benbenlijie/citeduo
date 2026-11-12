@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { db } from './db'
 import { ApiError } from './errors'
 import { buildNetwork } from './graph'
-import { getPaper } from './s2'
+import { getPaper, getPapersBatch } from './s2'
 import { resolvePaperId } from './ids'
 import { toS2Input } from './resolve'
 import { cacheNetwork, queryHash, getCachedNetwork } from './db-queries'
@@ -56,7 +56,14 @@ async function runJob(id: string): Promise<void> {
   try {
     const payload = JSON.parse(job.payload) as { paper_id: string; depth: number; max_nodes: number; query_hash: string }
     setJob(id, { status: 'running', progress: { phase: 'fetch-root', nodes: 0 } })
-    const root = await getPaper(await toS2Input(payload.paper_id))
+    const s2Path = await toS2Input(payload.paper_id)
+    // The single-paper endpoint rate-limits independently of the batch endpoint;
+    // fall back so one 429 does not fail a graph that the batch can still seed.
+    const root = await getPaper(s2Path).catch(async () => {
+      const [viaBatch] = await getPapersBatch([s2Path])
+      if (!viaBatch) throw new ApiError('PAPER_NOT_FOUND', '论文不存在', 404)
+      return viaBatch
+    })
     const graph = await buildNetwork(root, {
       depth: payload.depth,
       maxNodes: payload.max_nodes,

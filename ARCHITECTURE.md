@@ -576,6 +576,17 @@ OpenAlex relatedness now falls back to a title search
 OpenAlex. Edge types are `reference | citation | related | coupling | semantic`
 (coloured in `EDGE_COLORS`); `graphVersion`/`NETWORK_GRAPH_VERSION` bumped to 5.
 
+> **v8: semantic density cap.** In a 100-node niche field the old top-5 default
+> produced 372 semantic edges (98 nodes, average degree 7.7) — the graph already
+> looked like a mesh, and the legend's 1 s preview made it read as "everything is
+> connected". `embeddingK` now defaults to **2** (per-node strongest neighbours,
+> same policy as coupling's `couplingMaxNeighbors`), which keeps ~1.6 semantic
+> edges per node (372 → 154 on that graph). `graphVersion`/`NETWORK_GRAPH_VERSION`
+> were bumped to 8, then to 9 when the embedding batch fetch was made
+> best-effort: S2 returns 429 on its own schedule, and that used to abort the
+> whole semantic pass even with cached vectors available. Set `EMBEDDING_K=5`
+> to opt back in.
+
 ### 24. Community detection (Louvain)
 
 `community.ts:louvain` runs Louvain modularity local-moving (single level, good
@@ -585,6 +596,20 @@ connected-component id, whose function remains exported), so cluster colouring
 now reflects real communities. When the graph is coloured by cluster,
 `NetworkGraph` fades edges that cross communities so they read as inter-cluster
 links. `graphVersion`/`NETWORK_GRAPH_VERSION` bumped to 6.
+
+Because a community id alone says nothing to a reader, the legend labels each
+one client-side. `graph/clusterSummary.ts:summarizeClusters` groups the visible
+nodes by `clusterId` and ranks title n-grams by c-TF-IDF — frequent inside one
+community, rare across the others — producing a name such as "video
+understanding · driver distraction", plus size, share, year span, dominant
+field and the top PageRank papers. This runs per view (on the filtered nodes),
+so labels survive re-crawls and need no cache-version bump. A community of one
+paper is reported as unclustered rather than given a colour row; when Louvain
+finds a single community (common on sparse graphs), the legend says the
+citation graph is too sparse to partition instead of drawing a useless single
+swatch. Hovering a row previews that community (`clusterHover`), clicking pins
+it (`clusterFocus`); while active, papers and edges outside the community fade
+and the root stays lit, with edge-type preview outranking it.
 
 ### 25. Upstream rate limiting and keys
 
@@ -618,6 +643,15 @@ visibility. `NetworkGraph` drops hidden types right after `filterGraph`, and
 `GraphLegend` renders each edge type as a button (coloured swatch, struck
 through + dimmed when hidden) so the legend doubles as a filter. Hidden types are
 session-only (not in the URL).
+
+Hovering an entry for `EDGE_TYPE_FOCUS_DELAY_MS` (1 s, see
+`graph/edgeTypeFocus.ts` / `hooks/useEdgeTypeFocus.ts`) previews that type:
+`focusSetsForEdgeType(links, type, rootId)` keeps only that type's links which
+touch the root paper (plus their endpoints), so the preview is a root-centred
+star rather than every same-type edge in the network. `NetworkGraph` dims every
+other node/link — the preview outranks selection, node hover and the connection
+path. Leaving the entry clears it immediately, and the preview never
+mutates `hiddenEdgeTypes`, so the filter is restored untouched.
 
 ### 28. Timeline clarity
 

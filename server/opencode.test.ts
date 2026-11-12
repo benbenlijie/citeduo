@@ -2,7 +2,7 @@ import { test, expect, afterEach } from 'bun:test'
 import { mkdtempSync, existsSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createOpencodeClient, OpencodeManager, type OpencodeClient } from './opencode'
+import { createOpencodeClient, OpencodeManager, PAPER_CONTEXT_METADATA_KEY, type OpencodeClient } from './opencode'
 
 const realFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = realFetch })
@@ -46,6 +46,20 @@ test('promptAsync posts the agent, model and text part', async () => {
   expect(body.agent).toBe('agent')
   expect(body.model).toEqual({ providerID: 'prov', modelID: 'model' })
   expect(body.parts).toEqual([{ type: 'text', text: 'hello' }])
+})
+
+test('promptAsync includes supplied paper context as a separate marked synthetic text part', async () => {
+  let body: any
+  globalThis.fetch = (async (_u: string, init: RequestInit) => {
+    body = JSON.parse(String(init.body))
+    return new Response('', { status: 204 })
+  }) as unknown as typeof fetch
+  await client().promptAsync('sess-1', 'agent', 'prov', 'model', 'Explain the method', 'Current paper: text already supplied')
+  expect(body.parts).toEqual([
+    { type: 'text', text: 'Current paper: text already supplied', synthetic: true, metadata: { [PAPER_CONTEXT_METADATA_KEY]: 1 } },
+    { type: 'text', text: 'Explain the method' },
+  ])
+  expect(body.system).toBeUndefined()
 })
 
 test('sessionExists GETs /session/:id and reflects the status', async () => {

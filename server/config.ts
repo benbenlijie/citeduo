@@ -46,13 +46,17 @@ export const config = {
      * paper instead is cheap per call but is one call per paper, so cap how many
      * papers per level are worth it: the highest-ranked ones, which are the ones
      * whose successors shape the graph.
+     *
+     * At the keyed 1 RPS limit each call costs ~1 s, so 20 made the citing pass
+     * the dominant wait (up to ~20 s) for a handful of edges. Six keeps the pass
+     * near 6 s while still covering the frontier that matters.
      */
-    citeFetchLimit: num(Bun.env.CRAWL_CITE_FETCH_LIMIT, 20),
+    citeFetchLimit: num(Bun.env.CRAWL_CITE_FETCH_LIMIT, 6),
   },
   cache: {
     networkTtlHours: num(Bun.env.NETWORK_TTL_HOURS, 24),
     paperTtlHours: num(Bun.env.PAPER_TTL_HOURS, 168),
-    graphVersion: 6,
+    graphVersion: 9,
   },
   s2: {
     base: 'https://api.semanticscholar.org/graph/v1',
@@ -68,10 +72,12 @@ export const config = {
   related: {
     recommendLimit: num(Bun.env.RELATED_RECOMMEND_LIMIT, 10),
     relatedNodeBudget: num(Bun.env.RELATED_NODE_BUDGET, 15),
-    couplingMin: num(Bun.env.COUPLING_MIN, 2),
+    couplingMin: num(Bun.env.COUPLING_MIN, 3),
+    couplingMinCosine: num(Bun.env.COUPLING_MIN_COSINE, 0.15),
+    couplingMaxNeighbors: num(Bun.env.COUPLING_MAX_NEIGHBORS, 2),
     openalexLimit: num(Bun.env.OPENALEX_RELATED_LIMIT, 10),
     embeddingBatch: num(Bun.env.EMBEDDING_BATCH, 100),
-    embeddingK: num(Bun.env.EMBEDDING_K, 5),
+    embeddingK: num(Bun.env.EMBEDDING_K, 2),
     embeddingMinSim: num(Bun.env.EMBEDDING_MIN_SIM, 0.8),
   },
   connect: {

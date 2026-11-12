@@ -431,6 +431,8 @@ const DetailsPanel: React.FC = () => {
               to={`/read/${encodeURIComponent(arxivId)}${
                 paper.id ? `?pid=${encodeURIComponent(paper.id)}` : ''
               }`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 text-sm"
             >
               <BookOpen className="w-4 h-4" />

@@ -5,6 +5,8 @@ import { loadProviders } from './llm'
 import { buildOpencodeConfig, buildPaperToolSources } from './opencode-config'
 import { INTERNAL_TOKEN } from './internal-token'
 
+export const PAPER_CONTEXT_METADATA_KEY = 'citeduoPaperContext'
+
 export interface OpencodeClient {
   createSession(title: string): Promise<string>
   sessionExists(sessionId: string): Promise<boolean>
@@ -14,6 +16,7 @@ export interface OpencodeClient {
     providerID: string,
     modelID: string,
     text: string,
+    paperContext?: string,
   ): Promise<void>
   messages(sessionId: string): Promise<unknown[]>
   abort(sessionId: string): Promise<void>
@@ -46,14 +49,22 @@ export function createOpencodeClient(
       const body = (await res.json()) as { id: string }
       return body.id
     },
-    async promptAsync(sessionId, agent, providerID, modelID, text) {
+    async promptAsync(sessionId, agent, providerID, modelID, text, paperContext) {
       const res = await fetch(`${sessionPath(sessionId)}/prompt_async`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...auth },
         body: JSON.stringify({
           agent,
           model: { providerID, modelID },
-          parts: [{ type: 'text', text }],
+          parts: [
+            ...(paperContext ? [{
+              type: 'text',
+              text: paperContext,
+              synthetic: true,
+              metadata: { [PAPER_CONTEXT_METADATA_KEY]: 1 },
+            }] : []),
+            { type: 'text', text },
+          ],
         }),
         signal: AbortSignal.timeout(timeoutMs),
       })

@@ -115,7 +115,7 @@ const AiAssistantPanel: React.FC<Props> = ({ arxivId, selection, target, onClose
 
       <div className="flex-1 space-y-3 overflow-y-auto p-3 text-sm" data-testid="ai-messages">
         {!chat || chat.messages.length === 0 ? (
-          <p className="text-xs text-gray-500">就这篇论文提问，AI 会先检索正文再回答。</p>
+          <p className="text-xs text-gray-500">就这篇论文提问，AI 会优先阅读随问题提供的论文内容，必要时再检索章节。</p>
         ) : (
           chat.messages.map((m) => (
             <div key={m.id} className={m.role === 'user' ? 'text-right' : ''}>

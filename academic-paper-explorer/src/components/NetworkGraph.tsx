@@ -10,8 +10,10 @@ import { filterGraph } from '../graph/graphFilters'
 import { graphAdapter, linkEndId, nodeToPaper, type GraphLink, type GraphNode } from '../graph/graphAdapter'
 import { pickVisibleLabels, ZOOM_LABEL_THRESHOLD } from '../graph/labelLod'
 import { connectionHighlight, ensurePathVisible } from '../graph/connectionPath'
+import { focusSetsForEdgeType } from '../graph/edgeTypeFocus'
+import { useEdgeTypeFocus } from '../hooks/useEdgeTypeFocus'
 
-import { EDGE_COLORS, withAlpha } from '../graph/encoding'
+import { EDGE_COLORS, isDirectedEdge, linkWidthFor, withAlpha } from '../graph/encoding'
 import { buildExportPayload, downloadCanvasPng, downloadText, exportFilename, toBibtex, toCsv } from '../graph/exportGraph'
 import {
   applyPositions,
@@ -228,8 +230,20 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
   const [extra, setExtra] = useState<{ nodes: NetworkNode[]; edges: NetworkEdge[] }>({ nodes: [], edges: [] })
   const [expandingId, setExpandingId] = useState<string | null>(null)
   const [nodeListOpen, setNodeListOpen] = useState(false)
+  // Community highlight is local to this graph: hovering a legend row previews
+  // it, clicking pins it, and moving to another network or colour mode clears it.
+  const [clusterHover, setClusterHover] = useState<number | null>(null)
+  const [clusterFocus, setClusterFocus] = useState<number | null>(null)
   const rootSelectedFor = useRef<string | null>(null)
   const expandedFetchedFor = useRef<Set<string>>(new Set())
+
+  // A deliberate legend hover previews one edge type; it is transient and never
+  // touches the hidden-type filter, so leaving the entry restores the graph.
+  const {
+    activeType: focusedEdgeType,
+    hoverEdgeType,
+    clearFocus: clearEdgeTypeFocus,
+  } = useEdgeTypeFocus()
 
   const setContainer = useCallback((el: HTMLDivElement | null) => {
     containerElRef.current = el
@@ -337,6 +351,59 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
     return data
   }, [filteredNodes, filteredEdges, colorMode, sizeMode, cacheKey])
 
+  const rootNode = useMemo(() => graphData.nodes.find((n) => n.isRoot) ?? null, [graphData])
+
+  const clusterById = useMemo(
+    () => new Map(graphData.nodes.map((n) => [n.id, n.clusterId])),
+    [graphData],
+  )
+  const clusterIdSet = useMemo(
+    () => new Set(graphData.nodes.map((n) => n.clusterId)),
+    [graphData],
+  )
+  // A hovered or pinned community only applies while it is still in this view.
+  const hoveredCluster =
+    clusterHover !== null && clusterIdSet.has(clusterHover) ? clusterHover : null
+  const pinnedCluster =
+    clusterFocus !== null && clusterIdSet.has(clusterFocus) ? clusterFocus : null
+  const activeClusterId = colorMode === 'cluster' ? (hoveredCluster ?? pinnedCluster) : null
+
+  useEffect(() => {
+    setClusterHover(null)
+    setClusterFocus(null)
+  }, [cacheKey, colorMode])
+
+  // Nothing to preview when the type has no visible links at the root.
+  const edgeFocus = useMemo(
+    () => focusSetsForEdgeType(graphData.links, focusedEdgeType, rootNode?.id ?? null),
+    [graphData, focusedEdgeType, rootNode],
+  )
+  const edgeFocusActive =
+    focusedEdgeType !== null && graphData.links.some((l) => l.type === focusedEdgeType)
+
+  // Cap preview labels so a type with hundreds of links stays readable and
+  // cheap to paint; larger nodes carry the names.
+  const edgeFocusLabelIds = useMemo(() => {
+    const ids = new Set<string>()
+    if (!edgeFocusActive) return ids
+    const ranked = graphData.nodes
+      .filter((n) => edgeFocus.nodeIds.has(n.id))
+      .sort((a, b) => b.size - a.size)
+    for (const n of ranked.slice(0, 24)) ids.add(n.id)
+    const root = graphData.nodes.find((n) => n.isRoot)
+    if (root) ids.add(root.id)
+    return ids
+  }, [edgeFocus, edgeFocusActive, graphData])
+
+  // Hiding the previewed type, or moving to another network, ends the preview.
+  useEffect(() => {
+    if (focusedEdgeType && hiddenEdgeTypes.includes(focusedEdgeType)) clearEdgeTypeFocus()
+  }, [focusedEdgeType, hiddenEdgeTypes, clearEdgeTypeFocus])
+
+  useEffect(() => {
+    clearEdgeTypeFocus()
+  }, [networkData, clearEdgeTypeFocus])
+
   const positionsSavedAt = useRef(0)
 
   // Select the root node once each time a new graph is generated (primary pane).
@@ -350,8 +417,6 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
   }, [isCompare, cacheKey, graphData, activeSelectionId, selectNode])
 
   const rootTitle = rootPaper?.title || undefined
-
-  const rootNode = useMemo(() => graphData.nodes.find((n) => n.isRoot) ?? null, [graphData])
 
   const handleSelectRoot = useCallback(() => {
     if (!rootNode) return
@@ -452,8 +517,9 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
       limit: 15,
     })
     for (const id of pathNodeIds) ids.add(id)
+    if (edgeFocusActive) for (const id of edgeFocusLabelIds) ids.add(id)
     return ids
-  }, [graphData, activeSelectionId, selectedNeighborIds, pathNodeIds])
+  }, [graphData, activeSelectionId, selectedNeighborIds, pathNodeIds, edgeFocusLabelIds, edgeFocusActive])
 
   const rebuildFromNode = useCallback(
     (node: GraphNode) => {
@@ -575,11 +641,24 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
     (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const x = node.x ?? 0
       const y = node.y ?? 0
-      const dim = (activeId !== null || pathActive) && !highlightIds.has(node.id)
+      // The legend preview is the strongest signal: only links of the previewed
+      // type and their endpoints stay lit, regardless of selection/hover state.
+      // The root stays lit even when it has no edge of the previewed type: it is
+      // the reader's anchor, and hiding it made the remaining star look random.
+      const focused = edgeFocusActive && (edgeFocus.nodeIds.has(node.id) || node.isRoot)
+      // A pinned community is the next strongest cue: papers outside it fade so
+      // the cluster's own shape becomes readable. The root always stays visible.
+      const inActiveCluster =
+        activeClusterId !== null && clusterById.get(node.id) === activeClusterId
+      const dim = edgeFocusActive
+        ? !focused
+        : activeClusterId !== null
+          ? !inActiveCluster && !node.isRoot
+          : (activeId !== null || pathActive) && !highlightIds.has(node.id)
 
       // Connection-path nodes get an emerald halo so the chain reads at a glance
       // even when the rest of the graph is dimmed out.
-      if (pathActive && pathNodeIds.has(node.id)) {
+      if (!edgeFocusActive && pathActive && pathNodeIds.has(node.id)) {
         ctx.globalAlpha = 0.4
         ctx.beginPath()
         ctx.arc(x, y, node.size + 6 / globalScale, 0, 2 * Math.PI)
@@ -595,10 +674,12 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
         ctx.fill()
       }
 
+      // The type preview is a root-centred star: everything else recedes to a
+      // grey ghost so only the connected nodes remain readable.
       ctx.globalAlpha = dim ? 0.12 : 1
       ctx.beginPath()
       ctx.arc(x, y, node.size, 0, 2 * Math.PI)
-      ctx.fillStyle = node.color
+      ctx.fillStyle = dim && edgeFocusActive ? '#2a2f3a' : node.color
       ctx.fill()
       ctx.lineWidth = (node.isRoot ? 2.5 : activeSelectionId === node.id ? 2 : 1.25) / globalScale
       ctx.strokeStyle = node.isRoot
@@ -621,8 +702,10 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
         ctx.stroke()
       }
 
-      const showLabel =
-        (globalScale >= ZOOM_LABEL_THRESHOLD ? zoomLabelIds.has(node.id) : priorityLabelIds.has(node.id)) && !dim
+      const showLabel = focused
+        ? edgeFocusLabelIds.has(node.id)
+        : (globalScale >= ZOOM_LABEL_THRESHOLD ? zoomLabelIds.has(node.id) : priorityLabelIds.has(node.id)) &&
+          !dim
       if (showLabel) {
         const raw = node.title || node.label || ''
         const label = raw.length > 22 ? `${raw.slice(0, 22)}…` : raw
@@ -637,7 +720,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
         const ly = y + node.size + 3 / globalScale
         const lw = tw + padX * 2
         const lh = fontSize + padY * 2
-        const isPriority = priorityLabelIds.has(node.id)
+        const isPriority = focused || priorityLabelIds.has(node.id)
         const overlaps = labelRectsRef.current.some(
           (r) => !(lx + lw < r.x || lx > r.x + r.w || ly + lh < r.y || ly > r.y + r.h),
         )
@@ -654,7 +737,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
       }
       ctx.globalAlpha = 1
     },
-    [activeId, highlightIds, activeSelectionId, priorityLabelIds, zoomLabelIds, markedIds, pathActive, pathNodeIds],
+    [activeId, highlightIds, activeSelectionId, priorityLabelIds, zoomLabelIds, markedIds, pathActive, pathNodeIds, edgeFocus, edgeFocusActive, edgeFocusLabelIds, activeClusterId, clusterById],
   )
 
   const paintPointerArea = useCallback((node: GraphNode, color: string, ctx: CanvasRenderingContext2D) => {
@@ -664,15 +747,17 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
     ctx.fill()
   }, [])
 
-  const clusterById = useMemo(
-    () => new Map(graphData.nodes.map((n) => [n.id, n.clusterId])),
-    [graphData],
-  )
-
   const linkColor = useCallback(
     (link: GraphLink) => {
       const base = EDGE_COLORS[link.type] ?? EDGE_COLORS.reference
-      const key = `${linkEndId(link.source)}->${linkEndId(link.target)}`
+      const from = linkEndId(link.source)
+      const to = linkEndId(link.target)
+      const key = `${from}->${to}`
+      // The legend preview outranks every other highlight state. Its keys carry
+      // the type because a pair can have several parallel edges.
+      if (edgeFocusActive) {
+        return edgeFocus.linkKeys.has(`${link.type}|${key}`) ? base : withAlpha(base, 0.06)
+      }
       // While a connection is on screen the path is the only thing that matters.
       if (pathActive) {
         if (pathLinkKeys.has(key)) return base
@@ -680,6 +765,14 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
         const touchesRoot =
           !!rootId && (linkEndId(link.source) === rootId || linkEndId(link.target) === rootId)
         return withAlpha(base, touchesRoot ? 0.18 : 0.06)
+      }
+      // A pinned community lights its internal edges and fades everything else,
+      // including edges that merely touch the root.
+      if (activeClusterId !== null) {
+        const internal =
+          clusterById.get(from) === activeClusterId && clusterById.get(to) === activeClusterId
+        if (internal) return base
+        return withAlpha(base, 0.05)
       }
       // Root's direct predecessors/successors stay fully lit as a lineage cue.
       const rootId = rootNode?.id
@@ -690,24 +783,31 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
       if (!activeId) {
         if (isLineageEdge) return base
         // When colouring by community, fade edges that cross communities.
+        const indirect = !isDirectedEdge(link.type)
         if (colorMode === 'cluster') {
           const same = clusterById.get(linkEndId(link.source)) === clusterById.get(linkEndId(link.target))
-          return withAlpha(base, same ? 0.4 : 0.1)
+          return withAlpha(base, same ? (indirect ? 0.24 : 0.4) : (indirect ? 0.06 : 0.1))
         }
-        return withAlpha(base, 0.35)
+        return withAlpha(base, indirect ? 0.22 : 0.35)
       }
       return linkKeys.has(key) ? base : withAlpha(base, 0.06)
     },
-    [activeId, linkKeys, colorMode, clusterById, rootNode, pathActive, pathLinkKeys],
+    [activeId, linkKeys, colorMode, clusterById, rootNode, pathActive, pathLinkKeys, edgeFocus, edgeFocusActive, activeClusterId],
   )
 
   const nodeColor = useCallback(
     (node: GraphNode) => {
+      if (edgeFocusActive) {
+        return edgeFocus.nodeIds.has(node.id) || node.isRoot ? node.color : '#2a2f3a'
+      }
       if (pathActive) return pathNodeIds.has(node.id) ? node.color : '#2a2f3a'
+      if (activeClusterId !== null) {
+        return clusterById.get(node.id) === activeClusterId || node.isRoot ? node.color : '#2a2f3a'
+      }
       if (!activeId) return node.color
       return highlightIds.has(node.id) ? node.color : '#2a2f3a'
     },
-    [activeId, highlightIds, pathActive, pathNodeIds],
+    [activeId, highlightIds, pathActive, pathNodeIds, edgeFocus, edgeFocusActive, activeClusterId, clusterById],
   )
 
   const commonProps = {
@@ -716,8 +816,12 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
     nodeColor,
     nodeVal: (n: GraphNode) => n.val,
     linkColor,
-    linkWidth: (l: GraphLink) => Math.max(0.5, l.weight * 1.5),
-    linkDirectionalArrowLength: 4,
+    linkWidth: (l: GraphLink) => {
+      const key = `${linkEndId(l.source)}->${linkEndId(l.target)}`
+      const focused = edgeFocusActive && edgeFocus.linkKeys.has(`${l.type}|${key}`)
+      return linkWidthFor(l) * (focused ? 1.6 : 1)
+    },
+    linkDirectionalArrowLength: (l: GraphLink) => (isDirectedEdge(l.type) ? 4 : 0),
     linkDirectionalArrowRelPos: 0.9,
     linkDirectionalArrowColor: linkColor,
     onNodeClick: handleNodeClick,
@@ -886,7 +990,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
               ref={fg3dRef}
               width={dimensions.width}
               height={dimensions.height}
-              linkDirectionalParticles={2}
+              linkDirectionalParticles={(l: GraphLink) => (isDirectedEdge(l.type) ? 2 : 0)}
               linkDirectionalParticleWidth={1.5}
               nodeRelSize={2}
               labelIds={labelIds3d}
@@ -907,7 +1011,20 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
         onExportBibtex={handleExportBibtex}
         onExportCsv={handleExportCsv}
       />
-      {!isCompare && <GraphLegend nodes={graphData.nodes} rootNode={rootNode} onSelectRoot={handleSelectRoot} />}
+      {!isCompare && (
+        <GraphLegend
+          nodes={graphData.nodes}
+          rootNode={rootNode}
+          onSelectRoot={handleSelectRoot}
+          activeEdgeType={edgeFocusActive ? focusedEdgeType : null}
+          focusEmpty={edgeFocusActive && edgeFocus.linkKeys.size === 0}
+          onEdgeTypeHover={hoverEdgeType}
+          activeClusterId={activeClusterId}
+          pinnedClusterId={colorMode === 'cluster' ? clusterFocus : null}
+          onClusterHover={setClusterHover}
+          onClusterSelect={setClusterFocus}
+        />
+      )}
       {!isCompare && <GraphTimeline minYear={minYear} maxYear={maxYear} rootYear={rootNode?.year ?? null} />}
       {graphView === '2d' && engineTick > 0 && (
         <GraphMinimap nodes={graphData.nodes} selectedId={activeSelectionId} onSelect={handleMinimapSelect} />

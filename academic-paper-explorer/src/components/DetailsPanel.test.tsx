@@ -72,17 +72,18 @@ describe('DetailsPanel notes', () => {
     expect((screen.getByPlaceholderText('记录想法…') as HTMLTextAreaElement).value).toBe('note-b')
   })
 
-  it('links to the in-app reader when the paper has an arXiv id', () => {
+  it('opens the in-app reader in a new tab when the paper has an arXiv id', () => {
     useUiStore.setState({
       selectedPaper: {
         id: 'p1', title: 'T', citation_count: 0, authors: '', source: 'semantic_scholar', arxiv_id: '2401.00001',
       },
     })
     renderPanel()
-    expect(screen.getByRole('link', { name: /在应用内阅读/ })).toHaveAttribute(
-      'href',
-      '/read/2401.00001?pid=p1',
-    )
+    const link = screen.getByRole('link', { name: /在应用内阅读/ })
+    expect(link).toHaveAttribute('href', '/read/2401.00001?pid=p1')
+    // The papers page must stay put: the reader opens in a new tab.
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
   it('toggles favorite for the current paper', () => {

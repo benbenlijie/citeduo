@@ -39,13 +39,20 @@ export function connectedComponents(nodes: GraphNode[], edges: GraphEdge[]): Map
   return comp
 }
 
+/** Compress multi-count edge weights onto a citation-comparable scale for PageRank / Louvain. */
+export function edgeAnalysisWeight(e: Pick<GraphEdge, 'type' | 'weight'>): number {
+  const raw = e.weight > 0 ? e.weight : 1
+  if (e.type === 'coupling' || e.type === 'related') return 1 + Math.log10(raw)
+  return raw
+}
+
 export function pagerank(nodes: GraphNode[], edges: GraphEdge[], damping = 0.85, iterations = 20): Map<string, number> {
   const n = nodes.length
   const pr = new Map<string, number>()
   const out = new Map<string, { to: string; w: number }[]>()
   for (const node of nodes) { pr.set(node.id, 1 / n); out.set(node.id, []) }
   for (const e of edges) {
-    const w = e.weight > 0 ? e.weight : 1
+    const w = edgeAnalysisWeight(e)
     out.get(e.from)?.push({ to: e.to, w })
     // Bibliographic coupling is symmetric: let rank flow both ways.
     if (e.type === 'coupling') out.get(e.to)?.push({ to: e.from, w })
@@ -105,21 +112,81 @@ export interface BuildOpts {
   onProgress?: (done: number, total: number) => void
 }
 
-/** Undirected bibliographic coupling: papers sharing >= minShared references. */
-export function bibliographicCoupling(refsByNode: Map<string, Set<string>>, minShared: number): GraphEdge[] {
+export interface CouplingOptions {
+  /** Minimum Salton cosine shared / sqrt(|A| * |B|) so long reference lists do not couple everything. */
+  minCosine?: number
+  /** Keep at most the strongest K coupling neighbours per paper (0 = unlimited). */
+  maxNeighbors?: number
+}
+
+/**
+ * Undirected bibliographic coupling: papers sharing >= minShared references,
+ * normalised by reference-list length and pruned to each paper's top-K matches
+ * so dense sub-fields do not degenerate into an all-pairs hairball.
+ */
+export function bibliographicCoupling(
+  refsByNode: Map<string, Set<string>>,
+  minShared: number,
+  opts: CouplingOptions = {},
+): GraphEdge[] {
+  if (minShared <= 0) return []
+  const minCosine = opts.minCosine ?? 0
+  const maxNeighbors = opts.maxNeighbors ?? 0
   const ids = [...refsByNode.keys()]
-  const out: GraphEdge[] = []
+
+  interface Pair {
+    from: string
+    to: string
+    shared: number
+    cosine: number
+  }
+
+  const pairs: Pair[] = []
   for (let i = 0; i < ids.length; i++) {
+    const a = refsByNode.get(ids[i])!
+    if (a.size < minShared) continue
     for (let j = i + 1; j < ids.length; j++) {
-      const a = refsByNode.get(ids[i])!
       const b = refsByNode.get(ids[j])!
+      if (b.size < minShared) continue
       const [small, big] = a.size <= b.size ? [a, b] : [b, a]
       let shared = 0
       for (const r of small) if (big.has(r)) shared++
-      if (shared >= minShared) out.push({ from: ids[i], to: ids[j], type: 'coupling', weight: shared })
+      if (shared < minShared) continue
+      const cosine = shared / Math.sqrt(a.size * b.size)
+      if (cosine < minCosine) continue
+      pairs.push({ from: ids[i], to: ids[j], shared, cosine })
     }
   }
-  return out
+
+  if (maxNeighbors <= 0) {
+    return pairs.map((p) => ({ from: p.from, to: p.to, type: 'coupling', weight: p.shared }))
+  }
+
+  const byNode = new Map<string, Pair[]>()
+  for (const p of pairs) {
+    let left = byNode.get(p.from)
+    if (!left) {
+      left = []
+      byNode.set(p.from, left)
+    }
+    left.push(p)
+    let right = byNode.get(p.to)
+    if (!right) {
+      right = []
+      byNode.set(p.to, right)
+    }
+    right.push(p)
+  }
+
+  const kept = new Set<Pair>()
+  for (const list of byNode.values()) {
+    list.sort((x, y) => y.cosine - x.cosine || y.shared - x.shared)
+    for (let i = 0; i < Math.min(maxNeighbors, list.length); i++) kept.add(list[i])
+  }
+
+  return pairs
+    .filter((p) => kept.has(p))
+    .map((p) => ({ from: p.from, to: p.to, type: 'coupling', weight: p.shared }))
 }
 
 export interface CandidateStats {
@@ -213,11 +280,16 @@ export async function buildNetwork(root: S2Paper, opts: BuildOpts): Promise<Grap
     // about: those are the papers whose successors actually shape the graph.
     const citingLists = new Map<string, Array<{ paperId: string; title?: string; year?: number; citationCount?: number }>>()
     if (citeLimit > 0) {
-      await Promise.all(
-        frontier.slice(0, config.crawl.citeFetchLimit).map(async (p) => {
-          if (p?.paperId) citingLists.set(p.paperId, await getCitingPaperList(p.paperId, citeLimit))
-        }),
-      )
+      // S2 rate-limits the citations endpoint hard when asked in parallel; four
+      // at a time keeps the root's own citing list from being the one that 429s.
+      const citeFrontier = frontier.slice(0, config.crawl.citeFetchLimit)
+      for (let i = 0; i < citeFrontier.length; i += 4) {
+        await Promise.all(
+          citeFrontier.slice(i, i + 4).map(async (p) => {
+            if (p?.paperId) citingLists.set(p.paperId, await getCitingPaperList(p.paperId, citeLimit))
+          }),
+        )
+      }
     }
 
     for (const paper of frontier) {
@@ -269,12 +341,21 @@ export async function buildNetwork(root: S2Paper, opts: BuildOpts): Promise<Grap
   await addRelatedNodes(root, nodes, edges, seen, canonicalOf, maxNodes, recommendedIds)
 
   if (config.related.couplingMin > 0) {
-    edges.push(...bibliographicCoupling(refsByNode, config.related.couplingMin))
+    edges.push(
+      ...bibliographicCoupling(refsByNode, config.related.couplingMin, {
+        minCosine: config.related.couplingMinCosine,
+        maxNeighbors: config.related.couplingMaxNeighbors,
+      }),
+    )
   }
 
   const merged = mergeDuplicates([...nodes.values()], edges, canonicalOf)
   const nodeList = merged.nodes
-  const edgeList = [...merged.edges]
+  // Edges are pushed before a node is fetched, and `maxNodes` can drop the node
+  // afterwards. Keeping those edges inflates the API's edge count and makes the
+  // client filter set disagree with the graph it actually paints.
+  const nodeIds = new Set(nodeList.map((n) => n.id))
+  const edgeList = merged.edges.filter((e) => nodeIds.has(e.from) && nodeIds.has(e.to))
 
   try {
     edgeList.push(...(await addSemanticEdges(nodeList)))
@@ -291,7 +372,7 @@ export async function buildNetwork(root: S2Paper, opts: BuildOpts): Promise<Grap
   const pr = pagerank(nodeList, edgeList)
   const communities = louvain(
     nodeList.map((n) => n.id),
-    edgeList.map((e) => ({ from: e.from, to: e.to, weight: e.weight })),
+    edgeList.map((e) => ({ from: e.from, to: e.to, weight: edgeAnalysisWeight(e) })),
   )
   for (const node of nodeList) {
     node.pageRankScore = pr.get(node.id) ?? 0
@@ -309,10 +390,15 @@ async function addSemanticEdges(nodeList: GraphNode[]): Promise<GraphEdge[]> {
   const cached = getEmbeddings(ids)
   const missing = ids.filter((id) => !cached.has(id)).slice(0, config.related.embeddingBatch)
   if (missing.length) {
-    const fetched = await getEmbeddingsBatch(missing)
-    for (const [id, vector] of fetched) {
-      upsertEmbedding(id, 'specter_v2', vector)
-      cached.set(id, vector)
+    try {
+      const fetched = await getEmbeddingsBatch(missing)
+      for (const [id, vector] of fetched) {
+        upsertEmbedding(id, 'specter_v2', vector)
+        cached.set(id, vector)
+      }
+    } catch {
+      // S2 rate-limits embeddings (429) independently of graph data; keep the
+      // edges we can build from the vectors already in the cache.
     }
   }
   const vectors = new Map<string, number[]>()

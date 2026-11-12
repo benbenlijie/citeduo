@@ -112,23 +112,32 @@ export async function getCitingPaperList(
   limit: number,
 ): Promise<Array<{ paperId: string; title?: string; year?: number; citationCount?: number }>> {
   if (limit <= 0 || !s2Path) return []
-  try {
-    const res = await s2Fetch(
-      `${config.s2.base}/paper/${encodeURIComponent(s2Path)}/citations?fields=${CITING_LIST_FIELDS}&limit=${limit}`,
-      { headers: headers(), signal: AbortSignal.timeout(15000) },
-    )
-    if (!res.ok) return []
-    const body = (await res.json()) as {
-      data?: Array<{ citingPaper?: { paperId?: string; title?: string; year?: number; citationCount?: number } }>
-    }
-    return (body.data ?? [])
-      .map((row) => row.citingPaper)
-      .filter((p): p is { paperId: string; title?: string; year?: number; citationCount?: number } =>
-        Boolean(p?.paperId),
+  // One bounded retry on 429: the first level's citing list is the only way the
+  // root's successors enter the graph, and losing it silently turns the citation
+  // layer into unrelated islands.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await s2Fetch(
+        `${config.s2.base}/paper/${encodeURIComponent(s2Path)}/citations?fields=${CITING_LIST_FIELDS}&limit=${limit}`,
+        { headers: headers(), signal: AbortSignal.timeout(15000) },
       )
-  } catch {
-    return []
+      if (res.ok) {
+        const body = (await res.json()) as {
+          data?: Array<{ citingPaper?: { paperId?: string; title?: string; year?: number; citationCount?: number } }>
+        }
+        return (body.data ?? [])
+          .map((row) => row.citingPaper)
+          .filter((p): p is { paperId: string; title?: string; year?: number; citationCount?: number } =>
+            Boolean(p?.paperId),
+          )
+      }
+      if (res.status !== 429 && res.status < 500) return []
+    } catch {
+      return []
+    }
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 700))
   }
+  return []
 }
 
 export function getCitationContexts(s2Path: string): Promise<any> {

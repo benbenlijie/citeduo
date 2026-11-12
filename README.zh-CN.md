@@ -51,7 +51,7 @@
 ![引用网络图](docs/images/network-graph.png)
 
 - **搜索**：聚合 Semantic Scholar 与 OpenAlex，按 DOI/arXiv 归一化去重；关键词历史保存在本地，聚焦时可直接复用。
-- **交互式引用网络**：节点按 PageRank 编码、Louvain 社区检测与聚类配色、边类型可逐类显示/隐藏、底部时间轴可拖动或播放以观察领域演进。
+- **交互式引用网络**：节点按 PageRank 编码、Louvain 社区检测与聚类配色、边类型可逐类显示/隐藏（悬停 1 秒可只看与根论文相连的该类型边和节点）、底部时间轴可拖动或播放以观察领域演进。
 - **2D canvas / 3D** 两种受力图视图。
 - **节点右键菜单**：以此为根重建网络、按标题再次搜索、展开该节点、加入对比、打开原文。
 - **多源相关边**：引用与被引、S2 语义推荐、OpenAlex 相关作品（含 arXiv 标题兜底）、文献耦合、SPECTER2 向量 kNN——统一归一化，同一篇论文不会重复出现。
@@ -165,7 +165,7 @@ citeduo/
 | `CONNECT_MAX_EXPANSIONS` | `6` | 单次关联分析允许的实时 S2 批量抓取次数。 |
 | `CONNECT_MAX_MS` | `25000` | 单次关联分析的墙钟预算。 |
 | `CONNECT_LOCAL_ONLY` | 关闭 | `1` = 只用已存关系作答，不联网。 |
-| `CRAWL_CITE_FETCH_LIMIT` | `20` | 每轮爬取为多少篇论文单独补充引用侧。 |
+| `CRAWL_CITE_FETCH_LIMIT` | `6` | 每轮爬取为多少篇论文单独补充引用侧（1 RPS 下每次约 1s，6 篇约 6s）。 |
 | `PAPER_CONTENT_MODE` | `auto` | `full` / `off` / `auto`；`auto` 表示仅回环实例提供全文，其他情况只给摘要与 arXiv 链接。 |
 | `ARXIV_API_MIN_INTERVAL_MS` | `3000` | arXiv API 条款要求每 3 秒最多一个请求。 |
 | `ARXIV_CONTENT_MIN_INTERVAL_MS` | `1000` | 抓取 arXiv 论文页的最小间隔；按 `robots.txt` 字面执行可设为 `15000`。 |

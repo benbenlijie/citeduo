@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Readable cluster legend**: the graph legend no longer lists anonymous
+  "簇 0…簇 7" swatches. Each community is named from its papers' distinguishing
+  title terms (c-TF-IDF over the visible graph), with its paper count, and the
+  detail card adds share, year span, dominant field and three representative
+  papers. Hovering a row previews the community; clicking pins it and fades the
+  rest of the graph (the root stays visible). Sparse graphs that Louvain cannot
+  partition now say so instead of drawing a single meaningless colour.
+
 ## [0.2.0] - 2026-10-28
 
 ### Added

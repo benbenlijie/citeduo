@@ -24,6 +24,18 @@ function renderReader(path = '/read/2401.00001') {
   )
 }
 
+/** Mount the reader alongside the papers page as the app's home route. */
+function renderReaderWithHome(entries: string[] = ['/read/2401.00001'], initialIndex = entries.length - 1) {
+  return render(
+    <MemoryRouter initialEntries={entries} initialIndex={initialIndex}>
+      <Routes>
+        <Route path="/" element={<div>papers home</div>} />
+        <Route path="/read/:arxivId" element={<ReaderPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 let mockProviders: { name: string; kind: string }[] = []
 
 beforeEach(() => {
@@ -85,6 +97,22 @@ describe('ReaderPage', () => {
     // sanitizer absolutizes URLs instead.
     expect(frame.getAttribute('srcdoc')).not.toContain('<base')
     expect(screen.getByRole('button', { name: 'Introduction' })).toBeInTheDocument()
+  })
+
+  it('returns to the papers page when opened directly in a new tab', async () => {
+    // A single history entry is what a deep link into a fresh tab looks like:
+    // react-router keeps the "default" key, so there is nowhere to go back to.
+    renderReaderWithHome(['/read/2401.00001'])
+    await screen.findByTestId('reader-frame')
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
+    expect(screen.getByText('papers home')).toBeInTheDocument()
+  })
+
+  it('steps back through history when the reader was opened from the app', async () => {
+    renderReaderWithHome(['/', '/read/2401.00001'], 1)
+    await screen.findByTestId('reader-frame')
+    fireEvent.click(screen.getByRole('button', { name: '返回' }))
+    expect(screen.getByText('papers home')).toBeInTheDocument()
   })
 
   it('shows a fallback with abs/pdf links when the fetch fails', async () => {
