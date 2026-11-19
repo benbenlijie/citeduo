@@ -7,7 +7,7 @@
 [![Bun](https://img.shields.io/badge/Bun-1.3%2B-black?logo=bun)](https://bun.sh)
 [![React](https://img.shields.io/badge/React-18-61dafb?logo=react)](https://react.dev)
 
-**[中文官网 →](https://citeduo.com/zh/)** · **[在线 Demo →](https://citeduo.com/papers/)** · [English](README.md) · [架构说明](ARCHITECTURE.md)
+**[在线 Demo →](https://watchdeep.net/papers/)** · [English](README.md) · [架构说明](ARCHITECTURE.md)
 
 公开 demo 无需口令，但有每日访客/请求预算；超出后会返回友好的 `429`，避免流量突增带来 API 或 LLM 账单。想无限使用请在本地部署。
 
@@ -236,7 +236,7 @@ CI 在每次 push 与 PR 上跑的就是这些。提交信息约定与开发流�
 
 `bun run deploy` 会构建前端、把仓库同步到 `scripts/deploy.sh` 里配置的主机，然后重启服务并做健康检查。仓库内的指南覆盖了 nginx + TLS 的子路径部署、访问口令与 systemd 常驻——见 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)。
 
-> [在线 Demo](https://citeduo.com/papers/) 不设应用口令，保留完整功能（全文阅读、服务端翻译、AI 助手），但有每日访客/请求预算；超限后当天返回 `429`，次日自动恢复。它只用于试用，不适合存放你的数据。
+> [在线 Demo](https://watchdeep.net/papers/) 不设应用口令，保留完整功能（全文阅读、服务端翻译、AI 助手），但有每日访客/请求预算；超限后当天返回 `429`，次日自动恢复。它只用于试用，不适合存放你的数据。
 
 ## 路线图
 
