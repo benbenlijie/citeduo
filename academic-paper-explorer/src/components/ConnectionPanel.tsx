@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -15,6 +15,12 @@ import { api } from '../services/api'
 import { usePaperConnection } from '../hooks/usePaperConnection'
 import { useGraphSelection } from '../hooks/useGraphSelection'
 import { resolvePaperKey } from '../lib/paperKey'
+import {
+  recordPaperOpenedFromRelation,
+  rememberInitialPapers,
+  trackConversionEvent,
+} from '../lib/conversion'
+import { ValueStarPrompt } from './StarConversionPrompt'
 import type { ConnectionKind, ConnectionPath, NetworkNode, Paper, PaperConnection } from '../types/domain'
 
 const KIND_LABEL: Record<ConnectionKind, string> = {
@@ -258,11 +264,48 @@ const ConnectionPanel: React.FC = () => {
     live,
   )
 
+  const [discoveredNewPaper, setDiscoveredNewPaper] = useState(false)
+  const lastStartedKey = useRef<string | null>(null)
+  const lastSuccessKey = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!connectionRequest?.fromId || !connectionRequest?.toId) return
+    const key = `${connectionRequest.fromId}->${connectionRequest.toId}`
+    if (lastStartedKey.current === key) return
+    lastStartedKey.current = key
+    rememberInitialPapers([connectionRequest.fromId, connectionRequest.toId])
+    trackConversionEvent('relation_analysis_started', {
+      paperId: connectionRequest.fromId,
+    })
+  }, [connectionRequest])
+
   // React Query only hands back data for the *current* key, so a stale answer
   // can never be written for freshly changed endpoints.
   useEffect(() => {
     if (query.data) setConnection(query.data)
   }, [query.data, setConnection])
+
+  useEffect(() => {
+    if (!connection?.best) return
+    const key = `${connection.from.id}->${connection.to.id}:${connection.best.kind}:${connection.best.hopCount}`
+    if (lastSuccessKey.current === key) return
+    lastSuccessKey.current = key
+    rememberInitialPapers([
+      connection.from.id,
+      connection.to.id,
+      resolvePaperKey(connectionFrom),
+      resolvePaperKey(connectionTo),
+    ])
+    trackConversionEvent('relation_analysis_success', {
+      paperId: connection.from.id,
+      meta: {
+        kind: connection.best.kind,
+        hops: connection.best.hopCount,
+        alternatives: connection.alternatives.length,
+        source: connection.stats.source,
+      },
+    })
+  }, [connection, connectionFrom, connectionTo])
 
   const candidates = useMemo<Candidate[]>(() => {
     const all: (Candidate | null)[] = [
@@ -408,6 +451,11 @@ const ConnectionPanel: React.FC = () => {
               </p>
             )}
             <Signals connection={connection} />
+            <ValueStarPrompt
+              visible={Boolean(connection.best)}
+              discoveredNewPaper={discoveredNewPaper}
+              placement="connection_panel"
+            />
           </div>
         )}
 
@@ -428,7 +476,21 @@ const ConnectionPanel: React.FC = () => {
               )}
             </div>
             <p className="text-gray-200">{connection.best.summary}</p>
-            <Chain path={connection.best} onPick={setSelectedNodeId} />
+            <Chain
+              path={connection.best}
+              onPick={(id) => {
+                setSelectedNodeId(id)
+                const openedNew = recordPaperOpenedFromRelation(
+                  id,
+                  {
+                    fromId: connection.from.id,
+                    toId: connection.to.id,
+                  },
+                  'connection_chain',
+                )
+                if (openedNew) setDiscoveredNewPaper(true)
+              }}
+            />
             <HopList path={connection.best} />
 
             {connection.alternatives.length > 0 && (

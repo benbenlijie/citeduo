@@ -5,6 +5,7 @@ import { useUiStore } from '../store/useUiStore'
 import { usePaperDetails } from '../hooks/usePaperDetails'
 import { usePaperLineage } from '../hooks/usePaperLineage'
 import { resolvePaperKey } from '../lib/paperKey'
+import { recordPaperOpenedFromRelation } from '../lib/conversion'
 import { useNotesStore } from '../store/useNotesStore'
 import { useLibraryStore } from '../store/useLibraryStore'
 import type { LineagePaper, Paper } from '../types/domain'
@@ -94,6 +95,7 @@ const DetailsPanel: React.FC = () => {
     setSelectedNodeId,
     connectionFrom,
     connectionTo,
+    connection,
     connectPair,
   } = useUiStore()
   const notes = useNotesStore((s) => s.notes)
@@ -433,6 +435,15 @@ const DetailsPanel: React.FC = () => {
               }`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => {
+                if (paperId && connection?.best) {
+                  recordPaperOpenedFromRelation(
+                    paperId,
+                    { fromId: connection.from.id, toId: connection.to.id },
+                    'details_reader',
+                  )
+                }
+              }}
               className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 text-sm"
             >
               <BookOpen className="w-4 h-4" />
@@ -444,6 +455,15 @@ const DetailsPanel: React.FC = () => {
               href={paper.url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => {
+                if (paperId && connection?.best) {
+                  recordPaperOpenedFromRelation(
+                    paperId,
+                    { fromId: connection.from.id, toId: connection.to.id },
+                    'details_external',
+                  )
+                }
+              }}
               className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 text-sm"
             >
               <Globe className="w-4 h-4" />

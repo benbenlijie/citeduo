@@ -157,12 +157,12 @@ systemctl --user enable --now citeduo.service
 - 更新代码后需要重新执行 `bun run build:web` 再重启服务。
 - 前端未构建时，根路径会返回提示 JSON，提示先运行 `bun run build:web`。
 
-## 5. 公网部署（nginx + 域名 watchdeep.net）
+## 5. 公网部署（nginx + 域名 citeduo.com）
 
 > ⚠️ 本应用**无内置账号体系**。直接暴露公网会让任何人都能消耗你的 LLM/S2 额度。务必：**开 `ACCESS_TOKEN`**（口令）并**只经 HTTPS 反向代理**访问。
 
 ### 5.1 DNS
-在域名服务商为 `watchdeep.net`（及 `www`）添加 **A 记录**指向你的服务器公网 IP。
+在域名服务商为 `citeduo.com`（及 `www`）添加 **A 记录**指向你的服务器公网 IP。
 
 ### 5.2 服务器准备
 ```bash
@@ -208,11 +208,11 @@ sudo systemctl daemon-reload && sudo systemctl enable --now citeduo
 ```
 
 ### 5.4 nginx 反向代理
-`/etc/nginx/sites-available/watchdeep.net`：
+`/etc/nginx/sites-available/citeduo.com`：
 ```nginx
 server {
     listen 80;
-    server_name watchdeep.net www.watchdeep.net;
+    server_name citeduo.com www.citeduo.com;
 
     location / {
         proxy_pass http://127.0.0.1:8787;
@@ -228,14 +228,14 @@ server {
 }
 ```
 ```bash
-sudo ln -s /etc/nginx/sites-available/watchdeep.net /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/citeduo.com /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ### 5.5 HTTPS 证书（Let's Encrypt）
 ```bash
 sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d watchdeep.net -d www.watchdeep.net
+sudo certbot --nginx -d citeduo.com -d www.citeduo.com
 ```
 certbot 会自动改写为 443 并启用跳转与自动续期。
 
@@ -246,7 +246,7 @@ sudo ufw deny 8787/tcp   # 应用端口不对外
 ```
 
 ### 5.7 访问
-浏览器打开 `https://watchdeep.net/?token=你的口令` 一次，服务端写入 Cookie 后会跳转到 `https://watchdeep.net/`，之后正常使用。
+浏览器打开 `https://citeduo.com/?token=你的口令` 一次，服务端写入 Cookie 后会跳转到 `https://citeduo.com/`，之后正常使用。
 
 ### 5.8 备份与更新
 ```bash
@@ -256,9 +256,9 @@ git pull && bun run build:web && sudo systemctl restart citeduo
 
 ### 5.9 使用统计
 
-访问 `https://watchdeep.net/papers/stats`（子路径部署时）查看第一方统计；数据写在同一个 `data/app.db` 的 `usage_events` 表里，不接第三方，不存原始 IP/UA。
+访问 `https://citeduo.com/papers/stats`（子路径部署时）查看第一方统计；数据写在同一个 `data/app.db` 的 `usage_events` 表里，不接第三方，不存原始 IP/UA。
 
-- 与主应用共用 `ACCESS_TOKEN`；想让统计页用独立口令，在 `server/.env` 加 `ADMIN_TOKEN=一段随机口令`，然后打开一次 `https://watchdeep.net/papers/stats?token=那段口令`，服务端会写入独立 Cookie。
+- 与主应用共用 `ACCESS_TOKEN`；想让统计页用独立口令，在 `server/.env` 加 `ADMIN_TOKEN=一段随机口令`，然后打开一次 `https://citeduo.com/papers/stats?token=那段口令`，服务端会写入独立 Cookie。
 - 不想收集时设 `ANALYTICS_ENABLED=0` 并重启。
 - 页面浏览由前端在 SPA 路由变化时上报；搜索、建图、翻译、AI 等由服务端记录。日志轮转不影响统计，因为数据在 SQLite 里。
 - 备份时连同 `data/app.db` 一起备份；`usage_events` 表由启动时的 schema 自动创建。
@@ -304,13 +304,13 @@ SMTP_FROM=you@qq.com
 - 紧急放行/查看状态（`ADMIN_TOKEN` 从服务器 `.env` 读取，不要贴到公开地方）：
 
 ```bash
-curl -H "Authorization: Bearer $ADMIN_TOKEN" https://watchdeep.net/papers/api/admin/demo-quota
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://watchdeep.net/papers/api/admin/demo-quota/reset
+curl -H "Authorization: Bearer $ADMIN_TOKEN" https://citeduo.com/papers/api/admin/demo-quota
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://citeduo.com/papers/api/admin/demo-quota/reset
 ```
 
 公开 demo 保留全部功能时，匿名用户可以直接调用服务端 AI/翻译。务必在 LLM provider 后台设置消费上限、使用可随时吊销的 key，并定期轮换；`DEMO_PUBLIC=1` 只负责每日预算和看板口令，不会拒绝 `/api/translate` 或 `/api/ai/*`。`PAPER_CONTENT_MODE=full` 还意味着服务器会缓存并向公众提供 arXiv 全文，需自行确认符合 arXiv 使用条款；更保守的部署用 `off`，浏览器仍会直接加载 arXiv 提供的 HTML。
 
-## 6. 子路径挂载（例如 https://watchdeep.net/papers/）
+## 6. 子路径挂载（例如 https://citeduo.com/papers/）
 
 若不想占用域名根（根已被其他站点使用），可挂到子路径：
 
