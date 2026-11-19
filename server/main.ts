@@ -33,9 +33,11 @@ import { aiLoginPage, aiLoginRoute } from './ai-login'
 import { attachVisitorCookie, captureApiEvent, ensureVisitorIdentity, isTrackablePath, recordCapturedEvent } from './analytics'
 import { demoQuotaEnabled, demoQuotaResponse, registerDemoRequest } from './demo-quota'
 import { demoQuotaResetRoute, demoQuotaRoute, demoQuotaTestEmailRoute } from './routes/demo'
-import { analyticsPageViewRoute } from './routes/analytics'
+import { analyticsEventRoute, analyticsPageViewRoute } from './routes/analytics'
 import { usageRoute } from './routes/usage'
 import { renderStatsPage } from './stats-page'
+import { handlePublicSiteRequest, isPublicSitePath } from './site/router'
+import { renderNotFoundPage } from './site/render'
 
 const WEB_DIST = new URL('../academic-paper-explorer/dist', import.meta.url).pathname
 
@@ -48,7 +50,7 @@ const AI_TOKEN = config.ai.accessToken ?? ACCESS_TOKEN
 // request per block batch plus a provider-status poll, scaling with document
 // size. Exempting these keeps a large paper from tripping the generic per-IP
 // limiter; the provider and per-request size caps still bound the work.
-const RATE_LIMIT_EXEMPT = ['/api/paper/session/', '/api/translate', '/api/llm/status']
+const RATE_LIMIT_EXEMPT = ['/api/paper/session/', '/api/translate', '/api/llm/status', '/api/analytics/']
 
 // The stats page is read-only but contains search terms and paper titles, so
 // it can have its own password. When ADMIN_TOKEN is absent it shares the app
@@ -143,13 +145,34 @@ function safeRequestIp(req: Request): string {
   }
 }
 
+export function isSpaRoutePath(pathname: string): boolean {
+  return pathname === '/' || pathname === '/index.html' || /^\/read\/[^/]+\/?$/.test(pathname)
+}
+
 async function serveStatic(pathname: string): Promise<Response> {
   const safe = pathname === '/' ? '/index.html' : pathname
   if (safe.includes('..')) return json({ error: { code: 'VALIDATION_FAILED', message: 'bad path' } }, 400)
-  let file = Bun.file(WEB_DIST + safe)
-  if (!(await file.exists())) file = Bun.file(WEB_DIST + '/index.html') // SPA fallback
-  if (!(await file.exists())) return json({ error: { code: 'INTERNAL_SERVER_ERROR', message: "frontend not built (run 'bun run build:web')" } }, 404)
-  return new Response(file)
+  const file = Bun.file(WEB_DIST + safe)
+  if (await file.exists()) {
+    const headers = new Headers()
+    if (safe === '/index.html') headers.set('X-Robots-Tag', 'noindex, follow')
+    return new Response(file, { headers })
+  }
+  if (!isSpaRoutePath(pathname)) {
+    return new Response(renderNotFoundPage(pathname), {
+      status: 404,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'X-Robots-Tag': 'noindex, follow',
+      },
+    })
+  }
+  const spaShell = Bun.file(WEB_DIST + '/index.html')
+  if (!(await spaShell.exists())) {
+    return json({ error: { code: 'INTERNAL_SERVER_ERROR', message: "frontend not built (run 'bun run build:web')" } }, 404)
+  }
+  return new Response(spaShell, { headers: { 'X-Robots-Tag': 'noindex, follow' } })
 }
 
 recoverJobs()
@@ -226,6 +249,7 @@ async function dispatchApi(req: Request): Promise<Response> {
   }
 
   if (p === '/api/analytics/pageview' && req.method === 'POST') return await analyticsPageViewRoute(req)
+  if (p === '/api/analytics/event' && req.method === 'POST') return await analyticsEventRoute(req)
   if (p === '/api/search' && req.method === 'POST') return await searchRoute(req)
   if (p === '/api/details' && req.method === 'POST') return await detailsRoute(req)
   if (p === '/api/details-related' && req.method === 'POST') return await detailsRelatedRoute(req)
@@ -360,7 +384,8 @@ server = Bun.serve({
       const tracked = isTrackablePath(p)
       // Internal retrieval calls carry the internal token, not a public cookie;
       // they should not burn the demo budget while an admin uses the assistant.
-      const quotaCounted = tracked && !p.startsWith('/api/paper/session/')
+      const publicSite = isPublicSitePath(p)
+      const quotaCounted = tracked && !publicSite && !p.startsWith('/api/paper/session/') && !p.startsWith('/api/analytics/')
       const wantIdentity = (tracked && config.analytics.enabled) || (quotaCounted && demoQuotaEnabled())
       const identity = wantIdentity ? ensureVisitorIdentity(req, { secure }) : null
 
@@ -379,7 +404,10 @@ server = Bun.serve({
       else if (p === '/api/admin/demo-quota/reset' && req.method === 'POST') res = demoQuotaResetRoute()
       else if (p === '/api/admin/demo-quota/test-email' && req.method === 'POST') res = await demoQuotaTestEmailRoute()
       else if (p.startsWith('/api/')) res = await handleApi(req)
-      else res = await serveStatic(p)
+      else {
+        const siteRes = await handlePublicSiteRequest(req, url)
+        res = siteRes ?? (await serveStatic(p))
+      }
 
       return identity ? attachVisitorCookie(res, identity) : res
     } catch (e) {

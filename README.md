@@ -8,7 +8,7 @@
 [![React](https://img.shields.io/badge/React-18-61dafb?logo=react)](https://react.dev)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**[Live demo →](https://watchdeep.net/papers/)** · [中文说明](README.zh-CN.md) · [Architecture](ARCHITECTURE.md)
+**[Website →](https://citeduo.com/)** · **[Live demo →](https://citeduo.com/papers/)** · [中文说明](README.zh-CN.md) · [Architecture](ARCHITECTURE.md)
 
 The public demo is open without a token. It has a daily visitor/request budget and returns a friendly `429` when the budget is exhausted, so a burst of traffic cannot run up API or LLM bills. Run CiteDuo locally for unlimited use.
 
@@ -245,7 +245,7 @@ CI runs exactly these on every push and pull request. See [CONTRIBUTING.md](CONT
 
 `bun run deploy` builds the frontend and rsyncs the tree to a host you configure in `scripts/deploy.sh`, then restarts the service and health-checks the URL. The bundled guide covers a sub-path deployment behind nginx with TLS, the token gate, and running it as a systemd unit — see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md).
 
-> The [live demo](https://watchdeep.net/papers/) is open without a token and keeps the full feature set — full-text reader, server-side translation and the AI assistant — under a daily visitor/request budget; after the cap it returns `429` until local midnight. It exists to try the app, not to hold your data.
+> The [live demo](https://citeduo.com/papers/) is open without a token and keeps the full feature set — full-text reader, server-side translation and the AI assistant — under a daily visitor/request budget; after the cap it returns `429` until local midnight. It exists to try the app, not to hold your data.
 
 ## Roadmap
 

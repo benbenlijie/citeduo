@@ -28,6 +28,22 @@ const MAX_PATH = 400
 const MAX_QUERY = 200
 const MAX_REFERRER = 300
 
+export const CLIENT_CONVERSION_EVENTS = [
+  'landing_view',
+  'example_open',
+  'demo_start',
+  'paper_search_success',
+  'network_view',
+  'relation_analysis_started',
+  'relation_analysis_success',
+  'new_paper_opened',
+  'star_cta_view',
+  'star_cta_click',
+  'github_outbound',
+] as const
+
+export type ConversionEventName = (typeof CLIENT_CONVERSION_EVENTS)[number]
+
 export type UsageEventName =
   | 'page_view'
   | 'search'
@@ -40,6 +56,7 @@ export type UsageEventName =
   | 'ai_session'
   | 'ai_chat'
   | 'neighbors'
+  | ConversionEventName
 
 export type UsageRangeKey = '7d' | '30d' | '90d' | 'all'
 
@@ -308,6 +325,56 @@ export function recordPageView(
     device: deviceKind(ua),
     status: 200,
   }, database)
+}
+
+const ALLOWED_CONVERSION_SET = new Set<string>(CLIENT_CONVERSION_EVENTS)
+const SAFE_META_KEYS = new Set([
+  'locale',
+  'placement',
+  'pair',
+  'kind',
+  'hops',
+  'alternatives',
+  'source',
+  'valueVerified',
+])
+
+function sanitizeConversionMeta(raw: unknown): Record<string, string | number | boolean | undefined> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const out: Record<string, string | number | boolean | undefined> = {}
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!SAFE_META_KEYS.has(k)) continue
+    if (typeof v === 'boolean') out[k] = v
+    else if (typeof v === 'number' && Number.isFinite(v)) out[k] = Math.trunc(v)
+    else if (typeof v === 'string') {
+      const cleaned = cleanId(v)
+      if (cleaned) out[k] = cleaned.slice(0, 64)
+    }
+  }
+  return out
+}
+
+export function recordClientEvent(
+  req: Request,
+  body: { event?: unknown; path?: unknown; referrer?: unknown; paperId?: unknown; meta?: unknown },
+  database: Database = db,
+): boolean {
+  if (typeof body.event !== 'string' || !ALLOWED_CONVERSION_SET.has(body.event)) return false
+  const parsed = body.path != null ? sanitizePagePath(body.path) : { path: '/' }
+  const ua = req.headers.get('user-agent') ?? ''
+  const explicitPaperId = cleanId(body.paperId)
+  // Conversion events intentionally never store search query text or tokens.
+  recordUsageEvent(req, {
+    event: body.event as ConversionEventName,
+    path: parsed?.path ?? '/',
+    paperId: explicitPaperId ?? parsed?.paperId,
+    referrer: sanitizeReferrer(body.referrer),
+    browser: browserFamily(ua),
+    device: deviceKind(ua),
+    status: 200,
+    meta: sanitizeConversionMeta(body.meta),
+  }, database)
+  return true
 }
 
 async function requestBody(req: Request): Promise<Record<string, unknown>> {

@@ -5,6 +5,9 @@ import NetworkGraph from '../components/NetworkGraph'
 import DetailsPanel from '../components/DetailsPanel'
 import ConnectionPanel from '../components/ConnectionPanel'
 import ConnectionCapsule from '../components/ConnectionCapsule'
+import { HeaderStarLink } from '../components/StarConversionPrompt'
+import { recordDemoStartOnce, recordNetworkViewOnce } from '../lib/conversion'
+import { resolvePaperKey } from '../lib/paperKey'
 import FilterPanel from '../components/FilterPanel'
 import {
   ResizableHandle,
@@ -27,6 +30,17 @@ const HomePage: React.FC = () => {
   useUrlSync()
   const { data: networkData } = usePaperNetwork(selectedPaper, graphDepth ?? undefined, graphMaxNodes ?? undefined)
 
+  React.useEffect(() => {
+    const src = new URLSearchParams(window.location.search).get('src') ?? undefined
+    recordDemoStartOnce(src)
+  }, [])
+
+  React.useEffect(() => {
+    if (networkData && networkData.nodes.length > 0) {
+      recordNetworkViewOnce(resolvePaperKey(selectedPaper) ?? undefined)
+    }
+  }, [networkData, selectedPaper])
+
   return (
     <div className="h-screen flex flex-col">
       {/* 顶部导航栏 */}
@@ -40,11 +54,12 @@ const HomePage: React.FC = () => {
               学术论文关联网络分析平台
             </div>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             <ConnectionCapsule />
-            <div className="text-sm text-gray-400">
+            <div className="hidden lg:block text-sm text-gray-400">
               查清两篇论文到底是怎么连上的
             </div>
+            <HeaderStarLink />
           </div>
         </div>
       </header>
@@ -123,10 +138,24 @@ const HomePage: React.FC = () => {
                 <h3 className="text-xl font-semibold text-gray-300 mb-2">
                   开始探索学术网络
                 </h3>
-                <p className="text-gray-500 max-w-md">
-                  请在上方搜索框中输入DOI、arXiv ID、Semantic Scholar ID或关键词，
-                  然后选择一篇论文来生成引用网络图。
+                <p className="text-gray-500 max-w-md mb-4">
+                  请在上方搜索框中输入 DOI、arXiv ID、Semantic Scholar ID 或关键词，
+                  或直接点开一组示例论文查看逐跳关联路径。
                 </p>
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const from = { id: '2304.02643', title: 'Segment Anything', authors: '', citation_count: 0, source: 'semantic_scholar' as const }
+                      const to = { id: '2410.24164', title: 'π0: Vision-Language-Action Flow Model', authors: '', citation_count: 0, source: 'semantic_scholar' as const }
+                      useUiStore.getState().selectRootPaper(from)
+                      connectPair(from, to, { run: true })
+                    }}
+                    className="rounded-lg bg-emerald-600 px-3.5 py-2 text-xs font-medium text-white hover:bg-emerald-500"
+                  >
+                    用两篇示例论文体验（SAM ↔ π0）
+                  </button>
+                </div>
               </div>
             </div>
           )}

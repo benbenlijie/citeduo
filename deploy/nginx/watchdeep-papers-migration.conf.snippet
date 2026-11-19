@@ -1,0 +1,21 @@
+# Stage M6 cutover snippet (apply ONLY after https://citeduo.com is deployed,
+# verified in Google Search Console / Bing Webmaster Tools, and approved).
+#
+# Preserves all deep-link query parameters (?paper=..., ?from=...&to=..., etc.)
+# while keeping non-CiteDuo routes on watchdeep.net untouched.
+
+location = /papers {
+    return 301 https://citeduo.com/papers/$is_args$args;
+}
+
+location ^~ /papers/ {
+    rewrite ^/papers/(.*)$ https://citeduo.com/papers/$1 permanent;
+}
+
+location = /paper-demo {
+    return 301 https://citeduo.com/papers/$is_args$args;
+}
+
+location ^~ /paper-demo/ {
+    rewrite ^/paper-demo/(.*)$ https://citeduo.com/papers/$1 permanent;
+}
