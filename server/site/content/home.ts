@@ -1,4 +1,5 @@
 import { SITE_FACTS, type SiteLocale } from '../facts'
+import type { FaqItem } from '../types'
 
 export interface HomePageCopy {
   metaTitle: string
@@ -16,7 +17,7 @@ export interface HomePageCopy {
   steps: { title: string; body: string }[]
   visualHeading: string
   visualSub: string
-  visuals: { src: string; alt: string; caption: string; width: number; height: number }[]
+  visuals: { src: string; srcSet?: string; sizes?: string; alt: string; caption: string; width: number; height: number }[]
   diffHeading: string
   diffSub: string
   diffs: { title: string; body: string }[]
@@ -27,6 +28,7 @@ export interface HomePageCopy {
   notFit: string[]
   limitsHeading: string
   limits: string[]
+  faq: FaqItem[]
   resourcesHeading: string
   resourcesSub: string
   starBannerHeading: string
@@ -39,7 +41,7 @@ export const HOME_COPY: Record<SiteLocale, HomePageCopy> = {
   en: {
     metaTitle: 'CiteDuo — Explainable Citation Paths Between Any Two Papers',
     description:
-      'Open-source, local-first academic paper explorer. Map citation networks, rank evidence-backed paths between any two papers hop by hop, read arXiv papers, and self-host with Bun + SQLite.',
+      'See how any two research papers are connected. Search papers, map citation networks, rank evidence paths, and self-host with Bun + SQLite.',
     eyebrow: `Open-source · ${SITE_FACTS.licenseSpdx} License · Local-first Bun + SQLite`,
     h1: 'See how any two research papers are actually connected.',
     lead:
@@ -75,6 +77,9 @@ export const HOME_COPY: Record<SiteLocale, HomePageCopy> = {
     visuals: [
       {
         src: '/site-assets/two-paper-connection.png',
+        srcSet:
+          '/site-assets/two-paper-connection-1280.webp 1280w, /site-assets/two-paper-connection-1920.webp 1920w',
+        sizes: '(max-width: 900px) 100vw, 50vw',
         alt: 'CiteDuo two-paper connection panel showing hop-by-hop explanation and alternative paths',
         caption: 'Hop-by-hop relation explanation with ranked evidence badges and up to 3 alternative paths.',
         width: 1920,
@@ -82,6 +87,8 @@ export const HOME_COPY: Record<SiteLocale, HomePageCopy> = {
       },
       {
         src: '/site-assets/network-graph.png',
+        srcSet: '/site-assets/network-graph-1280.webp 1280w, /site-assets/network-graph-1920.webp 1920w',
+        sizes: '(max-width: 900px) 100vw, 50vw',
         alt: 'CiteDuo interactive citation network graph with topic cluster legend and timeline',
         caption: 'Citation neighbourhood with Louvain topic clusters, edge-type filters, and publication timeline.',
         width: 1920,
@@ -127,6 +134,23 @@ export const HOME_COPY: Record<SiteLocale, HomePageCopy> = {
       'Public demo has a daily visitor and request budget and returns HTTP 429 once exhausted; self-host locally with Docker or Bun for unlimited queries.',
       'In-app full-text reading only covers arXiv/ar5iv papers and defaults to abstract-only on non-loopback hosts unless the operator explicitly enables PAPER_CONTENT_MODE=full.',
       'AI reading assistant is optional, disabled unless an operator configures opencode + AI_ACCESS_TOKEN, and never required for graph or path analysis.',
+    ],
+    faq: [
+      {
+        question: 'What does CiteDuo do?',
+        answer:
+          'CiteDuo searches papers, maps citation networks, and explains how two specific papers are connected through direct citations, bibliographic coupling, co-citation, multi-hop bridges, or semantic similarity.',
+      },
+      {
+        question: 'Is CiteDuo open source?',
+        answer:
+          'Yes. CiteDuo is released under the MIT license. The source, issue tracker, and self-hosting instructions are on GitHub.',
+      },
+      {
+        question: 'Can I self-host CiteDuo?',
+        answer:
+          'Yes. A self-hosted instance runs as one Bun process with one SQLite file. Docker is optional, and no account or cloud workspace is required.',
+      },
     ],
     resourcesHeading: 'Guides, comparisons, and self-hosting docs',
     resourcesSub: 'Read the methodology, compare literature mapping tools fairly, or deploy CiteDuo on your own machine.',
@@ -175,6 +199,9 @@ export const HOME_COPY: Record<SiteLocale, HomePageCopy> = {
     visuals: [
       {
         src: '/site-assets/two-paper-connection.png',
+        srcSet:
+          '/site-assets/two-paper-connection-1280.webp 1280w, /site-assets/two-paper-connection-1920.webp 1920w',
+        sizes: '(max-width: 900px) 100vw, 50vw',
         alt: 'CiteDuo 双论文关联路径面板，展示逐跳中文解释与备选路径',
         caption: '逐跳解释两篇论文如何相连，标注关系证据类型并提供最多 3 条备选路线。',
         width: 1920,
@@ -182,6 +209,8 @@ export const HOME_COPY: Record<SiteLocale, HomePageCopy> = {
       },
       {
         src: '/site-assets/network-graph.png',
+        srcSet: '/site-assets/network-graph-1280.webp 1280w, /site-assets/network-graph-1920.webp 1920w',
+        sizes: '(max-width: 900px) 100vw, 50vw',
         alt: 'CiteDuo 交互式引文网络图，包含主题聚类图例与年份时间轴',
         caption: '支持 Louvain 主题聚类、边类型开关与时间轴演进回放的引文网络图。',
         width: 1920,
@@ -227,6 +256,23 @@ export const HOME_COPY: Record<SiteLocale, HomePageCopy> = {
       '在线公开体验站设有每日访客与请求预算，超限后返回友好的 HTTP 429；用 Docker 或源码在本地运行即可无限制使用。',
       '应用内全文阅读仅面向 arXiv / ar5iv 论文，且公网实例默认只展示摘要与原文链接，除非运维者在确认许可后显式开启 PAPER_CONTENT_MODE=full。',
       'AI 阅读助手属于可选增强（需配置 opencode 与 AI_ACCESS_TOKEN），未启用时完全不影响搜索、建图与双论文路径分析。',
+    ],
+    faq: [
+      {
+        question: 'CiteDuo 是做什么的？',
+        answer:
+          'CiteDuo 可以搜索论文、展开引文网络，并解释两篇指定论文如何通过直接引用、文献耦合、共被引、多跳桥梁或语义相似相连。',
+      },
+      {
+        question: 'CiteDuo 是开源的吗？',
+        answer:
+          '是。CiteDuo 采用 MIT 许可证，源码、Issue 和自托管说明都在 GitHub 上。',
+      },
+      {
+        question: '可以自托管 CiteDuo 吗？',
+        answer:
+          '可以。自托管实例只需要一个 Bun 进程和一个 SQLite 文件，Docker 可选，不需要账号或云端工作区。',
+      },
     ],
     resourcesHeading: '实用指南、工具对比与自托管文档',
     resourcesSub: '了解双论文路径算法细节、客观对比主流文献图谱工具，或用一条命令完成本地部署。',

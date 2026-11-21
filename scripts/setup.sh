@@ -8,6 +8,16 @@ cd "$root"
 command -v bun >/dev/null || { echo "需要 Bun ≥1.3：https://bun.sh"; exit 1; }
 command -v pnpm >/dev/null || { echo "需要 pnpm 9"; exit 1; }
 
+pnpm_version="$(pnpm --version)"
+case "$pnpm_version" in
+  9.*) ;;
+  *)
+    echo "需要 pnpm 9.x（package.json 锁定 pnpm@9.15.0），当前为 $pnpm_version。"
+    echo "可改用：cd academic-paper-explorer && npx -y pnpm@9.15.0 install"
+    exit 1
+    ;;
+esac
+
 mkdir -p data
 
 if [ ! -f server/.env ]; then

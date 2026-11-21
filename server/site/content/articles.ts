@@ -1,19 +1,337 @@
 import { buildAppHomeUrl, buildAppPairUrl, SITE_FACTS } from '../facts'
 import type { SiteArticleSpec } from '../types'
 
-const [pairSamPi0, pairAlohaRdt, pairOpenvlaPi0] = SITE_FACTS.examplePairs
+const [pairSamPi0, pairAlohaRdt, pairOpenvlaRt2] = SITE_FACTS.examplePairs
+
+const FAQ = {
+  howToCheck: {
+    en: [
+      {
+        question: 'Are two papers related if one cites the other?',
+        answer:
+          'Often yes, but the citation context matters. A direct citation is the strongest structural signal; read the citing paragraph to see whether it is supportive, contrastive, or a passing mention.',
+      },
+      {
+        question: 'What if neither paper cites the other?',
+        answer:
+          'Check bibliographic coupling, co-citation, and short bridge paths through intermediate papers. Embedding similarity is the weakest signal and should not be presented as a citation.',
+      },
+      {
+        question: 'What is the difference between bibliographic coupling and co-citation?',
+        answer:
+          'Coupling means both papers cite the same earlier work. Co-citation means a later paper cites both. Coupling is fixed at publication; co-citation grows over time.',
+      },
+      {
+        question: 'Can CiteDuo prove that two papers are unrelated?',
+        answer:
+          'No. Missing edges can come from incomplete upstream metadata or a bounded live search. Treat a negative result as inconclusive, not as proof of no relationship.',
+      },
+    ],
+    zh: [
+      {
+        question: '一篇论文引用另一篇，就一定相关吗？',
+        answer:
+          '通常是一个强信号，但还要看引用语境。直接引用只能证明“提到了”，仍需阅读施引段落判断是支持、反驳还是顺带提及。',
+      },
+      {
+        question: '两篇论文没有直接引用，还能判断关系吗？',
+        answer:
+          '可以继续检查文献耦合、共被引和短桥梁路径。语义相似是最后的弱信号，不能当成引用关系。',
+      },
+      {
+        question: '文献耦合和共被引有什么区别？',
+        answer:
+          '文献耦合是两篇论文共同引用同一批早期工作；共被引是后来的论文同时引用它们。前者发表时基本固定，后者会随时间增长。',
+      },
+      {
+        question: 'CiteDuo 能证明两篇论文无关吗？',
+        answer:
+          '不能。上游元数据缺失或有界检索未命中都可能造成假阴性。没有找到路径只代表本次检索未命中，不是无关证明。',
+      },
+    ],
+  },
+  citationPath: {
+    en: [
+      {
+        question: 'What is a citation path?',
+        answer:
+          'A citation path is a directed chain of references or citations between two papers. It shows how an idea travelled through intermediate work, not merely that the endpoints share a topic.',
+      },
+      {
+        question: 'When is bibliographic coupling more useful?',
+        answer:
+          'Use coupling for new papers with few incoming citations. Their bibliography is already complete, so shared references can reveal a common methodological foundation immediately.',
+      },
+      {
+        question: 'When is co-citation more useful?',
+        answer:
+          'Use co-citation when you want to know whether later papers treat two works as peers, competing baselines, or parts of the same research conversation.',
+      },
+      {
+        question: 'Is semantic similarity the same as a citation?',
+        answer:
+          'No. Semantic similarity measures abstract or embedding proximity. CiteDuo labels it separately and gives it a lower confidence score than citation-backed evidence.',
+      },
+    ],
+    zh: [
+      {
+        question: '什么是引用链路？',
+        answer:
+          '引用链路是两篇论文之间由参考文献或施引关系构成的有向链条，用来说明一个想法如何经过中间工作传递，而不只是说明主题相近。',
+      },
+      {
+        question: '什么时候更适合看文献耦合？',
+        answer:
+          '新论文被引很少时更适合看文献耦合。它的参考文献列表已经完整，共同引用能立即暴露两篇论文共享的方法论底座。',
+      },
+      {
+        question: '什么时候更适合看共被引？',
+        answer:
+          '当你想知道后续研究是否把两篇论文当作同类基线、竞争路线或同一场讨论的一部分时，共被引更有解释力。',
+      },
+      {
+        question: '语义相似等于引用关系吗？',
+        answer:
+          '不等于。语义相似衡量摘要或向量表征的接近程度，CiteDuo 会单独标注，并给出低于引用证据的置信度。',
+      },
+    ],
+  },
+  inciteful: {
+    en: [
+      {
+        question: 'Is CiteDuo a replacement for Inciteful?',
+        answer:
+          'No. Both can connect two papers, but they optimize for different workflows. Inciteful is strong for hosted corpus filtering; CiteDuo focuses on typed evidence, hop-by-hop explanations, graphs, and self-hosting.',
+      },
+      {
+        question: 'Which tool is better for filtering large paper tables?',
+        answer:
+          'Inciteful is the more natural fit when you want an instant hosted interface for slicing and filtering large citation tables.',
+      },
+      {
+        question: 'Which tool explains each hop?',
+        answer:
+          'CiteDuo labels each hop as a direct reference, citation, coupling, related-work, or semantic edge, and explains the route in plain language.',
+      },
+      {
+        question: 'Can I self-host CiteDuo?',
+        answer:
+          'Yes. CiteDuo is MIT-licensed and runs as one Bun process with one SQLite file. Docker and Nginx deployment are documented in the repository.',
+      },
+    ],
+    zh: [
+      {
+        question: 'CiteDuo 能替代 Inciteful 吗？',
+        answer:
+          '不能简单替代。两者都能连接两篇论文，但优化的工作流不同：Inciteful 擅长在线语料筛选，CiteDuo 侧重证据类型、逐跳解释、图谱和自托管。',
+      },
+      {
+        question: '哪款工具更适合筛选大规模论文表？',
+        answer:
+          '如果你希望零安装、直接在网页端对大量引文表做多条件筛选，Inciteful 更自然。',
+      },
+      {
+        question: '哪款工具会解释每一跳？',
+        answer:
+          'CiteDuo 会把每一跳标成直接参考文献、施引、文献耦合、推荐关联或语义边，并用自然语言解释整条路径。',
+      },
+      {
+        question: 'CiteDuo 可以自托管吗？',
+        answer:
+          '可以。CiteDuo 采用 MIT 许可证，单个 Bun 进程加单个 SQLite 文件即可运行，仓库里有 Docker 和 Nginx 部署说明。',
+      },
+    ],
+  },
+  connectedPapers: {
+    en: [
+      {
+        question: 'What is the best Connected Papers alternative?',
+        answer:
+          'It depends on the workflow. ResearchRabbit and Litmaps fit cloud collections and alerts; Inciteful fits hosted corpus filtering; CiteDuo fits typed two-paper paths and self-hosted ownership.',
+      },
+      {
+        question: 'Does CiteDuo replace Connected Papers?',
+        answer:
+          'No. Connected Papers is centered on similarity neighbourhoods around one seed paper. CiteDuo also draws neighbourhoods, but its main focus is explaining how two specific papers connect.',
+      },
+      {
+        question: 'Which alternative supports two-paper paths?',
+        answer:
+          'CiteDuo and Inciteful Literature Connector both support connecting two papers. They differ in path explanation, filtering, graphs, and deployment model.',
+      },
+      {
+        question: 'Is CiteDuo free?',
+        answer:
+          'Yes. CiteDuo is MIT-licensed and can be self-hosted without an account. The public demo may have a daily visitor/request budget.',
+      },
+    ],
+    zh: [
+      {
+        question: '最好的 Connected Papers 替代工具是哪个？',
+        answer:
+          '取决于工作流。云端收藏和提醒可以看 ResearchRabbit、Litmaps；在线语料筛选可以看 Inciteful；需要证据类型、双论文路径和自托管时看 CiteDuo。',
+      },
+      {
+        question: 'CiteDuo 能替代 Connected Papers 吗？',
+        answer:
+          '不能简单替代。Connected Papers 以单篇种子论文的相似邻域为中心；CiteDuo 也画邻域，但重点是解释两篇指定论文如何相连。',
+      },
+      {
+        question: '哪些替代工具支持双论文路径？',
+        answer:
+          'CiteDuo 和 Inciteful Literature Connector 都支持连接两篇论文，区别在路径解释、筛选、图谱和部署方式。',
+      },
+      {
+        question: 'CiteDuo 免费吗？',
+        answer:
+          '是。CiteDuo 采用 MIT 许可证，可以无账号自托管；公开 Demo 可能有每日访客/请求预算。',
+      },
+    ],
+  },
+  literatureReview: {
+    en: [
+      {
+        question: 'How many anchor papers should I start with?',
+        answer:
+          'Start with two or three papers that represent different assumptions or method families. A single survey often hides the disagreements you need to structure the review.',
+      },
+      {
+        question: 'Should citation count determine paper quality?',
+        answer:
+          'No. Citation count reflects age and visibility as much as importance. Use it as a navigation signal, then verify the method and claims in the paper.',
+      },
+      {
+        question: 'When should I stop expanding the citation graph?',
+        answer:
+          'Stop when new expansions no longer change the cluster structure or reveal new bridge papers. Convert the graph into an outline before collecting more PDFs.',
+      },
+    ],
+    zh: [
+      {
+        question: '文献综述应该从几篇锚点论文开始？',
+        answer:
+          '先选两到三篇代表不同假设或方法路线的论文。只从一篇综述起步，往往会掩盖真正需要比较的分歧。',
+      },
+      {
+        question: '被引次数能代表论文质量吗？',
+        answer:
+          '不能。被引次数同时受发表时间和可见度影响。它可以作为导航信号，但结论仍要回到方法和原文核查。',
+      },
+      {
+        question: '什么时候应该停止扩图？',
+        answer:
+          '当新的扩展不再改变主题簇结构，也不再出现新的桥梁论文时，就应该把图谱转成提纲，而不是继续囤积 PDF。',
+      },
+    ],
+  },
+  selfHosting: {
+    en: [
+      {
+        question: 'What do I need to self-host CiteDuo?',
+        answer:
+          'You need Bun 1.3 or newer and a writable data directory for SQLite. Docker is optional, and upstream API keys are optional for basic use.',
+      },
+      {
+        question: 'Does self-hosting require an account?',
+        answer:
+          'No. CiteDuo runs locally without an account or cloud workspace. Optional LLM and API-key features are configured through environment variables.',
+      },
+      {
+        question: 'Can I put CiteDuo behind Nginx?',
+        answer:
+          'Yes. The repository includes a deployment guide for Nginx, TLS, sub-path mounting, systemd, and health checks.',
+      },
+    ],
+    zh: [
+      {
+        question: '自托管 CiteDuo 需要什么？',
+        answer:
+          '需要 Bun 1.3 或更新版本，以及一个可写的 SQLite 数据目录。Docker 可选，基础使用不强制配置上游 API Key。',
+      },
+      {
+        question: '自托管需要账号吗？',
+        answer:
+          '不需要。CiteDuo 可以在本地无账号运行，可选的 LLM 与 API Key 功能通过环境变量配置。',
+      },
+      {
+        question: '可以把 CiteDuo 放在 Nginx 后面吗？',
+        answer:
+          '可以。仓库提供 Nginx、TLS、子路径挂载、systemd 和健康检查的部署说明。',
+      },
+    ],
+  },
+}
+
+const HOW_TO_CHECK = {
+  en: {
+    name: 'How to check whether two papers are related',
+    steps: [
+      {
+        name: 'Check direct citations in both directions',
+        text: 'Look for A in B’s references or B in A’s references. A direct citation is the strongest structural signal, but the citing paragraph still determines whether it is supportive or contrastive.',
+      },
+      {
+        name: 'Compare shared references',
+        text: 'If neither paper cites the other, list their shared references. Bibliographic coupling is strongest when they share specific domain papers, not only ubiquitous classics.',
+      },
+      {
+        name: 'Check co-citation',
+        text: 'Look for later papers that cite both. Co-citation shows that the research community discusses them together, but it is weaker than a direct citation.',
+      },
+      {
+        name: 'Inspect short bridge paths',
+        text: 'Search for short paths through intermediate papers. Read the bridge paper to see whether it is a genuine methodological link or a generic survey.',
+      },
+      {
+        name: 'Verify the source text',
+        text: 'Open the citing paragraph before making a claim. Citation metadata shows that a link exists, not what the author meant by it.',
+      },
+    ],
+  },
+  zh: {
+    name: '如何判断两篇论文是否相关',
+    steps: [
+      {
+        name: '双向检查直接引用',
+        text: '检查 B 的参考文献是否列出 A，或 A 是否列出 B。直接引用是最强的结构信号，但仍要读施引段落判断是支持还是反驳。',
+      },
+      {
+        name: '比较共同参考文献',
+        text: '如果双方没有直接引用，列出共同参考文献。共享具体领域论文比只共享泛用经典更能说明文献耦合。',
+      },
+      {
+        name: '检查共被引',
+        text: '寻找同时引用两者的后续论文。共被引说明学界把它们放在一起讨论，但证据强度低于直接引用。',
+      },
+      {
+        name: '检查短桥梁路径',
+        text: '搜索经过中间论文的短路径。打开桥梁论文，判断它是真正的方法连接，还是泛泛的综述节点。',
+      },
+      {
+        name: '核对原文语境',
+        text: '下结论前打开施引段落。引文元数据只能证明“提到了”，不能说明作者的实际态度。',
+      },
+    ],
+  },
+}
 
 export const SITE_ARTICLES: SiteArticleSpec[] = [
   {
     id: 'how-to-check-if-two-papers-are-related',
     category: 'guides',
     slug: 'how-to-check-if-two-papers-are-related',
-    lastmod: SITE_FACTS.lastUpdated,
+    publishedAt: '2026-11-19',
+    updatedAt: SITE_FACTS.lastUpdated,
+    relatedIds: [
+      'citation-path-vs-bibliographic-coupling-vs-co-citation',
+      'how-to-use-citation-networks-in-a-literature-review',
+      'connected-papers-alternatives',
+    ],
     en: {
       title: 'How to Check If Two Research Papers Are Related',
-      metaTitle: 'How to Check If Two Papers Are Related — Citation Paths & Coupling | CiteDuo',
+      metaTitle: 'How to Check If Two Papers Are Related | CiteDuo',
       description:
-        'A practical workflow to verify whether two academic papers are directly linked, share foundational references, are co-cited together, or only look similar in abstract.',
+        'Check direct citations, bibliographic coupling, co-citation, and semantic bridges to decide whether two papers are genuinely related.',
       eyebrow: 'Guide · Literature Verification',
       summaryAnswer:
         'To check whether two papers are genuinely related, test four signals in decreasing order of evidence strength: (1) direct citation in either direction, (2) bibliographic coupling via shared references, (3) co-citation by later papers that compare or combine them, and (4) multi-hop bridge papers or embedding similarity when vocabulary differs.',
@@ -21,6 +339,8 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
       ctaHref: buildAppPairUrl(pairSamPi0),
       secondaryCtaLabel: 'Open paper workspace',
       secondaryCtaHref: buildAppHomeUrl('guide_two_papers_en'),
+      faq: FAQ.howToCheck.en,
+      howTo: HOW_TO_CHECK.en,
       sections: [
         {
           heading: 'Why keyword overlap and single-paper graphs often miss the real answer',
@@ -67,9 +387,9 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     },
     zh: {
       title: '如何判断两篇学术论文是否真正相关',
-      metaTitle: '如何判断两篇论文是否相关：引用链、文献耦合与共被引核查指南 | CiteDuo',
+      metaTitle: '如何判断两篇论文是否相关 | CiteDuo',
       description:
-        '手头已经有两篇论文时，如何按证据强度依次核查直接引用、文献耦合、共被引、多跳桥梁论文与语义相似，避免把标题相近误判为方法同源。',
+        '按直接引用、文献耦合、共被引、多跳桥梁与语义相似逐级核查两篇论文的真实关系，避免把标题相近误判为方法同源。',
       eyebrow: '方法指南 · 文献关系核验',
       summaryAnswer:
         '判断两篇论文是否真正相关，最稳妥的做法是按证据从强到弱依次核查四类信号：（1）是否存在单向或双向直接引用；（2）是否共同引用同一批核心前驱文献（文献耦合）；（3）是否被后续综述或改进工作同时引用（共被引）；（4）跨术语体系时是否存在多跳桥梁论文或向量语义近邻。',
@@ -77,6 +397,8 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
       ctaHref: buildAppPairUrl(pairSamPi0),
       secondaryCtaLabel: '打开论文工作台',
       secondaryCtaHref: buildAppHomeUrl('guide_two_papers_zh'),
+      faq: FAQ.howToCheck.zh,
+      howTo: HOW_TO_CHECK.zh,
       sections: [
         {
           heading: '为什么关键词搜索和单中心引文图常常答不出“这两篇怎么连上”',
@@ -126,19 +448,26 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     id: 'citation-path-vs-bibliographic-coupling-vs-co-citation',
     category: 'guides',
     slug: 'citation-path-vs-bibliographic-coupling-vs-co-citation',
-    lastmod: SITE_FACTS.lastUpdated,
+    publishedAt: '2026-11-19',
+    updatedAt: SITE_FACTS.lastUpdated,
+    relatedIds: [
+      'how-to-check-if-two-papers-are-related',
+      'citeduo-vs-inciteful-literature-connector',
+      'how-to-use-citation-networks-in-a-literature-review',
+    ],
     en: {
       title: 'Citation Path vs Bibliographic Coupling vs Co-citation Explained',
-      metaTitle: 'Citation Path vs Bibliographic Coupling vs Co-citation | CiteDuo',
+      metaTitle: 'Citation Path vs Coupling vs Co-citation | CiteDuo',
       description:
-        'Understand the structural difference between directed citation chains, bibliographic coupling, and co-citation — when each signal works best and where each fails.',
+        'Compare directed citation paths, bibliographic coupling, and co-citation: what each measures, when it works, and where it fails.',
       eyebrow: 'Methodology · Scientometrics in Practice',
       summaryAnswer:
         'A citation path traces directed chronological inheritance (A → M → B), bibliographic coupling measures shared references fixed at publication time (A → R ← B), and co-citation measures how later authors group two papers together over time (A ← C → B). Use coupling for brand-new papers with zero citations, co-citation for field consensus, and directed paths for idea transmission.',
       ctaLabel: 'Inspect a 2-hop coupling example',
       ctaHref: buildAppPairUrl(pairAlohaRdt),
       secondaryCtaLabel: 'Inspect a 1-hop direct citation',
-      secondaryCtaHref: buildAppPairUrl(pairOpenvlaPi0),
+      secondaryCtaHref: buildAppPairUrl(pairOpenvlaRt2),
+      faq: FAQ.citationPath.en,
       sections: [
         {
           heading: 'Three graph shapes, three completely different claims',
@@ -177,16 +506,17 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     },
     zh: {
       title: '引用链路、文献耦合与共被引有什么区别？一文讲清三种文献关联',
-      metaTitle: '引用链路 vs 文献耦合 vs 共被引：原理对比与适用场景 | CiteDuo',
+      metaTitle: '引用链路 vs 文献耦合 vs 共被引 | CiteDuo',
       description:
-        '用直观箭头结构讲清有向引用链、文献耦合（Bibliographic Coupling）与共被引（Co-citation）的本质区别、时间特性以及在文献调研中的最佳用法。',
+        '用箭头结构讲清有向引用链、文献耦合与共被引的区别、时间特性和适用场景，避免把相似度连线误当成引用。',
       eyebrow: '科学计量方法 · 图谱原理解析',
       summaryAnswer:
         '有向引用链刻画思想按时间的传递（A ← M ← B）；文献耦合看两篇论文是否共同引用同一批前人文献（A → R ← B），发表即固定，最适合零被引新论文；共被引看后续论文是否同时把两者放在一起讨论（A ← C → B），随时间演化，最适合观察学界共识。',
       ctaLabel: '查看 2 跳文献耦合真实案例',
       ctaHref: buildAppPairUrl(pairAlohaRdt),
       secondaryCtaLabel: '查看 1 跳直接引用真实案例',
-      secondaryCtaHref: buildAppPairUrl(pairOpenvlaPi0),
+      secondaryCtaHref: buildAppPairUrl(pairOpenvlaRt2),
+      faq: FAQ.citationPath.zh,
       sections: [
         {
           heading: '三种箭头方向，代表三种截然不同的学术判断',
@@ -228,12 +558,18 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     id: 'citeduo-vs-inciteful-literature-connector',
     category: 'compare',
     slug: 'citeduo-vs-inciteful-literature-connector',
-    lastmod: SITE_FACTS.lastUpdated,
+    publishedAt: '2026-11-19',
+    updatedAt: SITE_FACTS.lastUpdated,
+    relatedIds: [
+      'connected-papers-alternatives',
+      'how-to-check-if-two-papers-are-related',
+      'self-hosting-citeduo',
+    ],
     en: {
       title: 'CiteDuo vs Inciteful Literature Connector: Honest Comparison',
-      metaTitle: 'CiteDuo vs Inciteful Literature Connector — Features & Trade-offs',
+      metaTitle: 'CiteDuo vs Inciteful Literature Connector',
       description:
-        'A factual comparison between CiteDuo and Inciteful Literature Connector for connecting two academic papers: data sources, path explanations, self-hosting, and ideal use cases.',
+        'Compare CiteDuo and Inciteful Literature Connector on two-paper path search, evidence typing, graphs, reading, and self-hosting.',
       eyebrow: 'Comparison · Two-Paper Connectors',
       summaryAnswer:
         'Both CiteDuo and Inciteful Literature Connector find paths between two academic papers — CiteDuo is not the only tool that connects two papers. Choose Inciteful when you want an instant zero-install web service with advanced SQL-like OpenAlex filtering over large corpus tables; choose CiteDuo when you want hop-by-hop typed evidence explanations (direct vs coupling vs co-citation vs semantic), interactive 2D/3D neighbourhood graphs, in-app arXiv bilingual reading, or MIT-licensed local self-hosting.',
@@ -241,6 +577,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
       ctaHref: buildAppPairUrl(pairSamPi0),
       secondaryCtaLabel: 'View CiteDuo source on GitHub',
       secondaryCtaHref: SITE_FACTS.githubRepoUrl,
+      faq: FAQ.inciteful.en,
       sections: [
         {
           heading: 'What both tools do well',
@@ -286,9 +623,9 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     },
     zh: {
       title: 'CiteDuo 与 Inciteful Literature Connector 客观对比',
-      metaTitle: 'CiteDuo vs Inciteful Literature Connector：双论文连接工具对比',
+      metaTitle: 'CiteDuo vs Inciteful 文献连接器对比',
       description:
-        '客观对比 CiteDuo 与 Inciteful Literature Connector 在双论文路径连接、证据解释、交互式引文图谱、arXiv 阅读与本地自托管方面的差异与各自优势。',
+        '客观对比 CiteDuo 与 Inciteful Literature Connector 在双论文路径、证据解释、图谱、阅读与自托管上的差异。',
       eyebrow: '工具对比 · 双论文关联分析',
       summaryAnswer:
         'Inciteful 的 Literature Connector 同样支持连接两篇论文——CiteDuo 并不是唯一能连接两篇论文的工具。如果你希望免安装直接在网页端对大规模开放引文表做灵活筛选，Inciteful 非常成熟；如果你需要逐跳区分证据类型（直接引用、文献耦合、共被引、语义相似）、在同一工作台切换 2D/3D 聚类网络与 arXiv 双语阅读，或者需要 MIT 开源本地自托管，CiteDuo 更合适。',
@@ -296,6 +633,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
       ctaHref: buildAppPairUrl(pairSamPi0),
       secondaryCtaLabel: '查看 GitHub 开源仓库',
       secondaryCtaHref: SITE_FACTS.githubRepoUrl,
+      faq: FAQ.inciteful.zh,
       sections: [
         {
           heading: '两款工具的共同出发点',
@@ -344,12 +682,18 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     id: 'connected-papers-alternatives',
     category: 'compare',
     slug: 'connected-papers-alternatives',
-    lastmod: SITE_FACTS.lastUpdated,
+    publishedAt: '2026-11-19',
+    updatedAt: SITE_FACTS.lastUpdated,
+    relatedIds: [
+      'citeduo-vs-inciteful-literature-connector',
+      'how-to-check-if-two-papers-are-related',
+      'how-to-use-citation-networks-in-a-literature-review',
+    ],
     en: {
       title: 'Connected Papers Alternatives in 2026: Cloud & Self-Hosted Options',
-      metaTitle: 'Connected Papers Alternatives (2026) — Litmaps, ResearchRabbit, Inciteful & CiteDuo',
+      metaTitle: 'Connected Papers Alternatives (2026) | CiteDuo',
       description:
-        'Compare practical alternatives to Connected Papers across single-paper similarity graphs, ongoing alerts, two-paper pathfinding, and open-source self-hosting.',
+        'Compare Connected Papers alternatives by workflow: cloud collections, alerts, two-paper pathfinding, open-source self-hosting, and data ownership.',
       eyebrow: 'Comparison · Literature Mapping Landscape',
       summaryAnswer:
         'The best Connected Papers alternative depends on your workflow: use ResearchRabbit or Litmaps for cloud collections and new-paper email alerts, Inciteful for hosted corpus filtering and two-paper connector tables, and CiteDuo when you want an MIT-licensed, self-hosted workspace that combines interactive cluster graphs with hop-by-hop two-paper connection explanations.',
@@ -357,6 +701,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
       ctaHref: buildAppHomeUrl('compare_cp_alternatives_en'),
       secondaryCtaLabel: 'Try two-paper example',
       secondaryCtaHref: buildAppPairUrl(pairSamPi0),
+      faq: FAQ.connectedPapers.en,
       sections: [
         {
           heading: 'Why researchers look beyond Connected Papers',
@@ -399,9 +744,9 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     },
     zh: {
       title: '2026 常见 Connected Papers 替代工具对比：云端服务与开源自托管怎么选',
-      metaTitle: 'Connected Papers 替代工具对比（2026）：Litmaps、ResearchRabbit、Inciteful 与 CiteDuo',
+      metaTitle: 'Connected Papers 替代工具（2026） | CiteDuo',
       description:
-        '按真实科研场景对比 Connected Papers、Litmaps、ResearchRabbit、Inciteful 与开源本地优先工具 CiteDuo，帮你按“单篇概览、长期追踪、双论文寻路、私有部署”选对工具。',
+        '按工作流比较 Connected Papers 替代工具：云端收藏、新论文提醒、双论文路径、开源自托管与数据归属。',
       eyebrow: '工具盘点 · 文献图谱生态对比',
       summaryAnswer:
         '没有哪一款工具能在所有环节通吃：快速看单篇论文的相似文献概览可继续用 Connected Papers；需要云端收藏夹和最新论文邮件提醒可选 Litmaps 或 ResearchRabbit；免安装网页端筛表与连接选 Inciteful；如果你需要“不限次本地建图 + 逐跳解释任意两篇论文怎么连上 + arXiv 双语阅读 + MIT 开源自托管”，CiteDuo 是直接对应的选择。',
@@ -409,6 +754,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
       ctaHref: buildAppHomeUrl('compare_cp_alternatives_zh'),
       secondaryCtaLabel: '体验双论文关联示例',
       secondaryCtaHref: buildAppPairUrl(pairSamPi0),
+      faq: FAQ.connectedPapers.zh,
       sections: [
         {
           heading: '研究者通常因为什么原因寻找 Connected Papers 替代方案',
@@ -454,19 +800,26 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     id: 'how-to-use-citation-networks-in-a-literature-review',
     category: 'guides',
     slug: 'how-to-use-citation-networks-in-a-literature-review',
-    lastmod: SITE_FACTS.lastUpdated,
+    publishedAt: '2026-11-19',
+    updatedAt: SITE_FACTS.lastUpdated,
+    relatedIds: [
+      'how-to-check-if-two-papers-are-related',
+      'citation-path-vs-bibliographic-coupling-vs-co-citation',
+      'connected-papers-alternatives',
+    ],
     en: {
       title: 'How to Use Citation Networks in a Literature Review Without Getting Lost',
-      metaTitle: 'How to Use Citation Networks in a Literature Review | CiteDuo',
+      metaTitle: 'Citation Networks for Literature Reviews | CiteDuo',
       description:
-        'A structured 5-stage workflow combining forward/backward snowballing, topic clustering, and two-paper bridge analysis to write rigorous literature reviews.',
+        'A five-step citation-network workflow for literature reviews: anchor papers, cluster naming, timeline checks, bridge finding, and source verification.',
       eyebrow: 'Workflow · Literature Review',
       summaryAnswer:
         'Use citation networks in five bounded passes: (1) pick 2–3 anchor papers from different angles, (2) map Louvain clusters to name distinct sub-approaches, (3) run backward and forward lineage checks for roots and state-of-the-art, (4) run two-paper path analysis between clusters to find synthesis papers, and (5) verify claims in full text before exporting BibTeX.',
       ctaLabel: 'Enter paper workspace',
       ctaHref: buildAppHomeUrl('guide_lit_review_en'),
       secondaryCtaLabel: 'Open Robotics VLA example',
-      secondaryCtaHref: buildAppPairUrl(pairOpenvlaPi0),
+      secondaryCtaHref: buildAppPairUrl(pairOpenvlaRt2),
+      faq: FAQ.literatureReview.en,
       sections: [
         {
           heading: 'Why unstructured graph clicking leads to "tab bankruptcy"',
@@ -481,7 +834,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
             'Follow this sequence to turn an interactive graph into a structured section outline:',
           ],
           bullets: [
-            'Step 1 — Anchor selection: Pick at least two papers with different assumptions (for example, an autoregressive VLA policy and a diffusion/flow-matching policy) rather than starting from a single survey.',
+            'Step 1 — Anchor selection: Pick at least two papers with different assumptions (for example, an open-source VLA baseline and a closed web-knowledge VLA baseline, OpenVLA vs RT-2) rather than starting from a single survey.',
             'Step 2 — Cluster naming: Build a 2-hop neighbourhood graph and inspect the Louvain cluster legend. Each cluster gives you candidate subsections (datasets, backbone architectures, evaluation benchmarks).',
             'Step 3 — Timeline scrubbing: Scrub publication years from oldest to newest to separate foundational problem definitions from recent incremental baselines.',
             'Step 4 — Cross-cluster bridge finding: Select one representative paper from Cluster A and one from Cluster B, then run Two-Paper Connection Search. Papers sitting at co-citation or coupling junctions are usually the exact comparative studies you should cite.',
@@ -503,16 +856,17 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     },
     zh: {
       title: '文献综述中如何高效使用引文网络（避免越点越乱的五步工作流）',
-      metaTitle: '文献综述如何使用引文网络：聚类命名、滚雪球与跨簇桥梁法 | CiteDuo',
+      metaTitle: '文献综述中的引文网络工作流 | CiteDuo',
       description:
-        '把引文网络从“随便点点看”变成结构化 Related Work 提纲的五步方法：双锚点选文、Louvain 聚类分节、时间轴溯源、跨簇双论文寻桥与原文核验导出。',
+        '用五步收敛法把引文网络变成文献综述提纲：双锚点选文、Louvain 聚类、时间轴、跨簇寻桥与原文核验。',
       eyebrow: '科研工作流 · 文献综述实战',
       summaryAnswer:
         '高效使用引文网络做文献综述应遵循五步收敛法：（1）选 2～3 篇代表不同技术路线的锚点论文；（2）用 2 跳网络与 Louvain 主题簇划分子方向；（3）用年份时间轴区分奠基文献与最新基线；（4）在两个主题簇代表作之间运行“双论文关联路径”找出对比综述或融合型桥梁论文；（5）回到正文核实引文语境并导出 BibTeX。',
       ctaLabel: '进入论文工作台实践',
       ctaHref: buildAppHomeUrl('guide_lit_review_zh'),
       secondaryCtaLabel: '打开机器人 VLA 真实案例',
-      secondaryCtaHref: buildAppPairUrl(pairOpenvlaPi0),
+      secondaryCtaHref: buildAppPairUrl(pairOpenvlaRt2),
+      faq: FAQ.literatureReview.zh,
       sections: [
         {
           heading: '为什么很多人用引文图谱只会“攒下一堆未读标签页”',
@@ -527,7 +881,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
             '在 CiteDuo 工作台中，按以下顺序操作可以在 30 分钟内搭出清晰的综述骨架：',
           ],
           bullets: [
-            '第 1 步（双锚点起步）：不要只搜一篇综述，挑选两篇方法路线明显不同的代表作（例如自回归动作模型 OpenVLA 与流匹配策略 π0）。',
+            '第 1 步（双锚点起步）：不要只搜一篇综述，挑选两篇方法路线明显不同的代表作（例如开源 VLA 基线 OpenVLA 与闭源网页知识迁移基线 RT-2）。',
             '第 2 步（用聚类定小节）：展开默认 2 跳引文图，悬停查看右上角 Louvain 主题簇图例（包含论文数、年份跨度与代表词），直接作为综述二级标题候选。',
             '第 3 步（时间轴看演进）：拖动底部发表年份时间轴从早到晚回放，分清谁是提出问题定义的先驱、谁是近两年的工程刷榜基线。',
             '第 4 步（跨簇寻桥找关键文献）：从两个不同聚类各选一篇代表作，点击“关联路径”。处在文献耦合交点或共被引中心的那篇中间论文，往往就是帮你把两派串起来的关键文献。',
@@ -552,12 +906,18 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     id: 'self-hosting-citeduo',
     category: 'docs',
     slug: 'self-hosting-citeduo',
-    lastmod: SITE_FACTS.lastUpdated,
+    publishedAt: '2026-11-19',
+    updatedAt: SITE_FACTS.lastUpdated,
+    relatedIds: [
+      'how-to-check-if-two-papers-are-related',
+      'citeduo-vs-inciteful-literature-connector',
+      'connected-papers-alternatives',
+    ],
     en: {
       title: 'Self-Hosting CiteDuo: Docker, Local Source, API Keys & Privacy Policies',
-      metaTitle: 'Self-Hosting CiteDuo — Docker, Bun + SQLite & arXiv Policy Guide',
+      metaTitle: 'Self-Host CiteDuo: Bun + SQLite Setup',
       description:
-        'Deploy CiteDuo on your laptop or lab server in minutes with Docker or Bun + SQLite. Covers upstream API keys, reverse proxy base paths, access tokens, and arXiv content compliance.',
+        'Run CiteDuo locally with Bun and SQLite: install, configure, self-host behind Nginx, and keep papers, notes, and graphs on your machine.',
       eyebrow: 'Documentation · Self-Hosting & Operations',
       summaryAnswer:
         'CiteDuo runs as a single Bun process backed by one SQLite file (data/app.db) under the MIT license. Start locally in one command via Docker (ghcr.io/benbenlijie/citeduo:latest on 127.0.0.1:8787) or from source with Bun >= 1.3 and pnpm 9; no external database, Redis, or cloud account is required.',
@@ -565,6 +925,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
       ctaHref: SITE_FACTS.githubRepoUrl,
       secondaryCtaLabel: 'Open live demo workspace',
       secondaryCtaHref: buildAppHomeUrl('docs_self_host_en'),
+      faq: FAQ.selfHosting.en,
       sections: [
         {
           heading: 'Option 1: One-command Docker deployment',
@@ -620,9 +981,9 @@ bun run server
     },
     zh: {
       title: '自托管部署 CiteDuo：Docker 一键运行、源码编译与合规配置指南',
-      metaTitle: 'CiteDuo 自托管部署指南：Docker、Bun + SQLite 与 arXiv 合规配置',
+      metaTitle: 'CiteDuo 自托管：Bun + SQLite 部署',
       description:
-        '用 Docker 或 Bun + SQLite 在个人电脑或课题组服务器上快速自托管 CiteDuo。详解 API Key 提速、子路径反向代理、访问口令与 arXiv 全文合规边界。',
+        '用 Bun + SQLite 本地部署 CiteDuo：安装、配置、Nginx 反向代理，并把论文缓存、笔记与图谱保存在自己的机器上。',
       eyebrow: '部署文档 · 本地优先与自托管',
       summaryAnswer:
         'CiteDuo 采用 MIT 许可证开源，整个系统仅由单个 Bun 进程与单个 SQLite 文件（data/app.db）组成，无需配置 PostgreSQL、Redis 或任何云账号。使用 Docker 一条命令即可在 127.0.0.1:8787 启动，也可以通过 Bun >= 1.3 与 pnpm 9 从源码构建运行。',
@@ -630,6 +991,7 @@ bun run server
       ctaHref: SITE_FACTS.githubRepoUrl,
       secondaryCtaLabel: '打开在线工作台体验',
       secondaryCtaHref: buildAppHomeUrl('docs_self_host_zh'),
+      faq: FAQ.selfHosting.zh,
       sections: [
         {
           heading: '方式一：Docker 一条命令启动（推荐）',
@@ -681,6 +1043,244 @@ bun run server
         { label: 'CiteDuo Dockerfile 源码', url: 'https://github.com/benbenlijie/citeduo/blob/main/Dockerfile' },
         { label: 'CiteDuo 本地部署与运维指南（DEPLOYMENT_GUIDE.md）', url: 'https://github.com/benbenlijie/citeduo/blob/main/DEPLOYMENT_GUIDE.md' },
         { label: 'arXiv API 使用条款说明', url: 'https://info.arxiv.org/help/api/tou.html' },
+      ],
+    },
+  },
+  {
+    id: 'verified-two-paper-citation-cases',
+    category: 'guides',
+    slug: 'verified-two-paper-citation-cases',
+    publishedAt: '2026-11-21',
+    updatedAt: SITE_FACTS.lastUpdated,
+    relatedIds: [
+      'how-to-check-if-two-papers-are-related',
+      'citation-path-vs-bibliographic-coupling-vs-co-citation',
+      'how-to-use-citation-networks-in-a-literature-review',
+    ],
+    en: {
+      title: 'Three Verified Two-Paper Citation Cases',
+      metaTitle: 'Verified Two-Paper Citation Cases | CiteDuo',
+      description:
+        'Walk through three live CiteDuo cases: SAM to π0, ALOHA to RDT, and OpenVLA to RT-2, with the actual evidence type and path result.',
+      eyebrow: 'Case Studies · Live evidence paths',
+      summaryAnswer:
+        'These three cases show bibliographic coupling through a ubiquitous classic, coupling through a shared imitation-learning foundation, and a direct citation. Reproduce them with the same deep links, then read the source paragraph before making a claim.',
+      ctaLabel: 'Open SAM ↔ π0 case',
+      ctaHref: buildAppPairUrl(pairSamPi0),
+      secondaryCtaLabel: 'Browse all verified examples',
+      secondaryCtaHref: '/#examples',
+      faq: [
+        {
+          question: 'Are these path results permanent?',
+          answer:
+            'No. Upstream citation data changes as papers are indexed and reference lists are corrected. The results here were sampled on 2026-11-21; rerun the deep links before quoting a path in a paper.',
+        },
+        {
+          question: 'Does a shared classic prove two papers are closely related?',
+          answer:
+            'Not by itself. Attention Is All You Need is a ubiquitous shared ancestor. Check the alternatives and look for a specific domain ancestor such as CLIP or RT-1 before treating coupling as strong evidence.',
+        },
+        {
+          question: 'Can CiteDuo determine whether a citation is supportive or critical?',
+          answer:
+            'No. CiteDuo shows citation metadata and path structure. Open the citing paragraph to determine whether the author agrees, compares, or merely mentions the cited work.',
+        },
+      ],
+      sections: [
+        {
+          heading: 'Why publish live path results',
+          paragraphs: [
+            'A benchmark screenshot is easy to fake and becomes stale. These cases publish the exact paper pair, the evidence type CiteDuo returned, the best path, and the alternatives so another researcher can reproduce or challenge the result.',
+            'The examples were sampled on 2026-11-21 from the public demo. Citation graphs evolve, so the deep links remain the source of truth; the written result is a dated observation, not a permanent fact.',
+          ],
+        },
+        {
+          heading: 'Case 1 — SAM ↔ π0: coupling through a ubiquitous classic',
+          paragraphs: [
+            'The best route returned two reference hops converging on Attention Is All You Need. That is bibliographic coupling, not a direct citation. The alternatives are more informative: a second coupling route through CLIP and a two-hop path through RT-2.',
+          ],
+          table: {
+            headers: ['Result', 'What CiteDuo returned', 'What it proves', 'What it does not prove'],
+            rows: [
+              ['Best path', '2-hop coupling via Attention Is All You Need', 'Both papers build on a shared general machine-learning foundation', 'Direct influence or exclusive methodological lineage'],
+              ['Alternative', 'Coupling via CLIP; path via RT-2', 'A more specific vision-language and robotics bridge exists', 'That every shared ancestor is equally meaningful'],
+            ],
+          },
+        },
+        {
+          heading: 'Case 2 — ALOHA ↔ RDT: shared imitation-learning foundations',
+          paragraphs: [
+            'The best path was a 2-hop coupling route through A Reduction of Imitation Learning and Structured Prediction to No-Regret Online Learning. Alternative coupling routes passed through RT-1 and a deep conditional generative model.',
+            'This is a useful example of coupling in two newer robotics papers: they do not need to cite each other for the graph to reveal a shared methodological base.',
+          ],
+          table: {
+            headers: ['Result', 'What CiteDuo returned', 'What it proves', 'What it does not prove'],
+            rows: [
+              ['Best path', '2-hop coupling via a foundational imitation-learning paper', 'Shared data-collection and policy-learning lineage', 'That RDT directly extends ALOHA'],
+              ['Alternatives', 'Coupling via RT-1 and a deep conditional generative model', 'Several plausible shared ancestors exist', 'That one ancestor alone explains the relationship'],
+            ],
+          },
+        },
+        {
+          heading: 'Case 3 — OpenVLA → RT-2: a direct citation',
+          paragraphs: [
+            'OpenVLA cites RT-2 directly. CiteDuo returns a one-hop reference edge with no alternatives. This is the strongest structural evidence among the three cases, but it still does not tell you whether the citation is supportive, critical, or a passing comparison.',
+          ],
+          table: {
+            headers: ['Result', 'What CiteDuo returned', 'What it proves', 'What it does not prove'],
+            rows: [
+              ['Best path', '1-hop direct reference, score 50', 'OpenVLA explicitly cites RT-2', 'The author’s stance or the size of RT-2’s influence'],
+            ],
+          },
+        },
+        {
+          heading: 'How to reproduce the three cases',
+          paragraphs: [
+            'Open each site-relative deep link, then compare the typed edge badges and alternative paths with the tables above. Production paths resolve on citeduo.com after ICP clearance; the same application is currently available on watchdeep.net.',
+          ],
+          code: `SAM ↔ π0
+/papers/?paper=2304.02643&from=2304.02643&to=2410.24164
+
+ALOHA ↔ RDT
+/papers/?paper=2304.13705&from=2304.13705&to=2410.07864
+
+OpenVLA → RT-2
+/papers/?paper=2406.09246&from=2406.09246&to=2307.15818`,
+        },
+        {
+          heading: 'How to use a path result responsibly',
+          paragraphs: [
+            'Treat the result as a reading plan, not a conclusion. Check the weakest hop, compare alternatives, and open the cited paragraph before writing that one paper influenced another.',
+          ],
+          bullets: [
+            'Prefer a specific domain ancestor over a ubiquitous classic when explaining a close method relationship.',
+            'Record the date and upstream source when citing a live result.',
+            'State the evidence type: direct citation, coupling, co-citation, multi-hop path, or semantic bridge.',
+            'Do not claim citation sentiment from metadata alone.',
+          ],
+        },
+      ],
+      sources: [
+        { label: 'SAM: Segment Anything (arXiv 2304.02643)', url: 'https://arxiv.org/abs/2304.02643' },
+        { label: 'π0: A Vision-Language-Action Flow Model (arXiv 2410.24164)', url: 'https://arxiv.org/abs/2410.24164' },
+        { label: 'ALOHA: Learning Fine-Grained Bimanual Manipulation (arXiv 2304.13705)', url: 'https://arxiv.org/abs/2304.13705' },
+        { label: 'RDT-1B: a Diffusion Foundation Model for Bimanual Manipulation (arXiv 2410.07864)', url: 'https://arxiv.org/abs/2410.07864' },
+        { label: 'OpenVLA (arXiv 2406.09246)', url: 'https://arxiv.org/abs/2406.09246' },
+        { label: 'RT-2: Vision-Language-Action Models (arXiv 2307.15818)', url: 'https://arxiv.org/abs/2307.15818' },
+        { label: 'CiteDuo Pathfinding Implementation (server/pathfind.ts)', url: 'https://github.com/benbenlijie/citeduo/blob/main/server/pathfind.ts' },
+      ],
+    },
+    zh: {
+      title: '三组已验证的双论文关系案例',
+      metaTitle: '三组已验证的双论文关系案例 | CiteDuo',
+      description:
+        '用 CiteDuo 的真实返回拆解 SAM→π0、ALOHA→RDT 与 OpenVLA→RT-2 三组案例，说明证据类型、路径结果与不能证明什么。',
+      eyebrow: '案例研究 · 线上真实路径结果',
+      summaryAnswer:
+        '三组案例分别展示：经由泛用经典的文献耦合、经由共同模仿学习基础的文献耦合，以及一条直接引用。用相同深链复现，并在下结论前阅读施引段落。',
+      ctaLabel: '打开 SAM ↔ π0 案例',
+      ctaHref: buildAppPairUrl(pairSamPi0),
+      secondaryCtaLabel: '浏览全部已验证示例',
+      secondaryCtaHref: '/zh/#examples',
+      faq: [
+        {
+          question: '这些路径结果是永久的吗？',
+          answer:
+            '不是。上游引文数据会随着论文入库和参考文献修订而变化。本文结果采样于 2026-11-21，引用前应重新打开深链核验。',
+        },
+        {
+          question: '共享一个泛用经典就能证明两篇论文关系很近吗？',
+          answer:
+            '不能。Attention Is All You Need 这类经典过于普遍。还要看备选路线，并寻找 CLIP、RT-1 这类更具体的领域祖先。',
+        },
+        {
+          question: 'CiteDuo 能判断引用是支持还是批评吗？',
+          answer:
+            '不能。CiteDuo 展示的是引文元数据和路径结构；必须打开施引段落，确认作者是支持、对比还是顺带提及。',
+        },
+      ],
+      sections: [
+        {
+          heading: '为什么要公开真实路径结果',
+          paragraphs: [
+            '截图很容易伪造，也会过期。这里同时公开论文对、CiteDuo 返回的证据类型、最佳路径和备选路线，方便其他研究者复现或质疑。',
+            '案例采样于 2026-11-21 的公开 Demo。引文图谱会变化，因此深链才是最终依据，文中的结果是带日期的观察，不是永久事实。',
+          ],
+        },
+        {
+          heading: '案例一：SAM ↔ π0，经由泛用经典的文献耦合',
+          paragraphs: [
+            '最佳路径是两条参考文献共同指向 Attention Is All You Need，因此是文献耦合，不是直接引用。更有信息量的是备选路线：经由 CLIP 的第二条耦合路径，以及经由 RT-2 的两跳路径。',
+          ],
+          table: {
+            headers: ['结果', 'CiteDuo 实际返回', '能证明什么', '不能证明什么'],
+            rows: [
+              ['最佳路径', '经由 Attention Is All You Need 的 2 跳文献耦合', '两篇论文共享通用机器学习基础', '直接影响或排他性的方法传承'],
+              ['备选路径', '经由 CLIP 的耦合；经由 RT-2 的 2 跳路径', '存在更具体的视觉-语言与机器人桥梁', '所有共同祖先都同等重要'],
+            ],
+          },
+        },
+        {
+          heading: '案例二：ALOHA ↔ RDT，共享模仿学习基础',
+          paragraphs: [
+            '最佳路径是经由 A Reduction of Imitation Learning and Structured Prediction to No-Regret Online Learning 的 2 跳文献耦合。备选路线包括 RT-1 与深度条件生成模型。',
+            '这是两篇较新的机器人论文：它们不需要互相引用，图谱也能暴露共享的方法论底座。',
+          ],
+          table: {
+            headers: ['结果', 'CiteDuo 实际返回', '能证明什么', '不能证明什么'],
+            rows: [
+              ['最佳路径', '经由模仿学习经典工作的 2 跳文献耦合', '共享数据采集与策略学习脉络', 'RDT 直接延续了 ALOHA'],
+              ['备选路径', '经由 RT-1 与深度条件生成模型的耦合', '存在多个合理的共同祖先', '单独一个祖先就能解释全部关系'],
+            ],
+          },
+        },
+        {
+          heading: '案例三：OpenVLA → RT-2，直接引用',
+          paragraphs: [
+            'OpenVLA 直接引用 RT-2。CiteDuo 返回一跳参考文献边，没有备选路径。这是三组案例中最强的结构证据，但仍不能说明引用是支持、批评还是顺带比较。',
+          ],
+          table: {
+            headers: ['结果', 'CiteDuo 实际返回', '能证明什么', '不能证明什么'],
+            rows: [
+              ['最佳路径', '1 跳直接参考文献，分数 50', 'OpenVLA 明确引用了 RT-2', '作者态度或 RT-2 的实际影响大小'],
+            ],
+          },
+        },
+        {
+          heading: '如何复现三组案例',
+          paragraphs: [
+            '打开站内相对深链，对照上表的证据类型和备选路径。ICP 通过后正式域名使用 citeduo.com；当前同一应用可在 watchdeep.net 访问。',
+          ],
+          code: `SAM ↔ π0
+/papers/?paper=2304.02643&from=2304.02643&to=2410.24164
+
+ALOHA ↔ RDT
+/papers/?paper=2304.13705&from=2304.13705&to=2410.07864
+
+OpenVLA → RT-2
+/papers/?paper=2406.09246&from=2406.09246&to=2307.15818`,
+        },
+        {
+          heading: '如何负责任地使用路径结果',
+          paragraphs: [
+            '把结果当作阅读计划，而不是结论。检查最弱跳、比较备选路线，并在写“某篇论文影响了另一篇”之前打开施引段落。',
+          ],
+          bullets: [
+            '解释紧密方法关系时，优先寻找具体领域祖先，而不是泛用经典。',
+            '引用线上结果时记录日期和上游数据源。',
+            '明确写出证据类型：直接引用、文献耦合、共被引、多跳路径或语义桥。',
+            '不要只根据元数据判断引用是支持还是批评。',
+          ],
+        },
+      ],
+      sources: [
+        { label: 'SAM：Segment Anything（arXiv 2304.02643）', url: 'https://arxiv.org/abs/2304.02643' },
+        { label: 'π0：Vision-Language-Action Flow Model（arXiv 2410.24164）', url: 'https://arxiv.org/abs/2410.24164' },
+        { label: 'ALOHA：Learning Fine-Grained Bimanual Manipulation（arXiv 2304.13705）', url: 'https://arxiv.org/abs/2304.13705' },
+        { label: 'RDT-1B：Diffusion Foundation Model for Bimanual Manipulation（arXiv 2410.07864）', url: 'https://arxiv.org/abs/2410.07864' },
+        { label: 'OpenVLA（arXiv 2406.09246）', url: 'https://arxiv.org/abs/2406.09246' },
+        { label: 'RT-2：Vision-Language-Action Models（arXiv 2307.15818）', url: 'https://arxiv.org/abs/2307.15818' },
+        { label: 'CiteDuo 路径分类与评分实现（server/pathfind.ts）', url: 'https://github.com/benbenlijie/citeduo/blob/main/server/pathfind.ts' },
       ],
     },
   },

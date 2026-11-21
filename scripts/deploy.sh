@@ -15,6 +15,7 @@
 #   REMOTE=myhost                    ssh host/alias to deploy to (required)
 #   DIR=/opt/citeduo                 remote install dir
 #   VITE_BASE=/papers/               frontend base path (must match your proxy sub-path)
+#   VITE_PUBLIC_ORIGIN=https://example.com absolute origin for Open Graph/Twitter URLs
 #   SERVICE=citeduo                  systemd unit name
 #   PUBLIC_URL=https://example.com/papers/   healthcheck URL (skipped when empty)
 #   REMOTE_BUN=/root/.bun/bin/bun    remote bun binary (used when not on PATH)
@@ -46,7 +47,7 @@ fi
 cd "$ROOT"
 
 if [ "${SKIP_WEB:-0}" != "1" ]; then
-  echo "==> build frontend (VITE_BASE=$VITE_BASE)"
+  echo "==> build frontend (VITE_BASE=$VITE_BASE, VITE_PUBLIC_ORIGIN=${VITE_PUBLIC_ORIGIN:-https://citeduo.com})"
   VITE_BASE="$VITE_BASE" pnpm --dir academic-paper-explorer build
 else
   echo "==> skip frontend build (SKIP_WEB=1)"

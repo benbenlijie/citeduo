@@ -1,11 +1,29 @@
 # CiteDuo SEO/GEO 建设、迁移与转化实施计划
 
 > 文档状态：待评审  
-> 最后更新：2026-11-19  
+> 最后更新：2026-11-21
 > 目标产品：CiteDuo  
 > 主域名：`https://citeduo.com`  
 > 产品仓库：`https://github.com/benbenlijie/citeduo`  
-> 当前文档位置：`/mnt/homeair/projects/GEO/docs/citeduo-seo-geo-plan-and-handoff.md`
+> 当前文档位置：`docs/seo-geo/citeduo-seo-geo-plan-and-handoff.md`
+
+---
+
+## 0. 2026-11-21 当前状态
+
+> 本节优先于后文的 2026-11-19 基线；后文保留为原始计划与决策记录。
+
+- 仓库 `main` 当前提交为 `3a43a6f`（PR #56）。
+- M1、M2 和 M4 大部分已经实现：中英文 SSR Landing、14 篇双语内容页、canonical、hreflang、robots、sitemap、404、转化事件、Nginx 配置和迁移映射均在仓库中。
+- 本地基线：后端 293 项测试通过，前端 472 项测试通过，typecheck、lint、构建全部通过；首页、About、3 个分类聚合页和 14 篇中英文内容页共 24 个 URL 本地返回 200。
+- SEO/GEO 站点能力已补齐：标题/描述压缩、FAQPage、HowTo、主题相关推荐、双语 About、Guides/Compare/Docs 聚合页、作者与实体 schema、WebP/JPEG 图片优化和 `llms.txt`。
+- 三个示例论文对已用线上 `POST /api/connect` 验证：SAM/π0 与 ALOHA/RDT 为 2 跳文献耦合，OpenVLA/RT-2 为 1 跳直接引用。原先的 OpenVLA/π0 实际返回语义桥，已替换为 OpenVLA/RT-2 并同步文案。
+- 移动端已完成第一轮体验改造：营销站使用移动优先布局、折叠菜单、卡片式表格和 44px 触控目标；应用在小于 1024px 时改为“列表 / 图谱 / 详情”单栏三标签，桌面宽度继续使用原三栏工作台。
+- 移动端回归覆盖 320、375、768、1024、1440px：无横向溢出；320/375px 营销页可见点击目标均不小于 44×44px；图谱工具条、时间轴、关联面板和详情页主要操作均达到 44px；1024px 自动恢复桌面三栏。
+- 当前工作树包含未提交的 SEO/GEO 与移动端改动，尚未 commit、push 或部署。`citeduo.com` 上线仍受 ICP 备案阻塞，线上 `https://watchdeep.net/papers/` 仍是旧版本。
+- 公网阻塞已确认：`citeduo.com` 被火山引擎未备案域名网关拦截，HTTP 302 到 `webblock.volcengine.com`，HTTPS 在 TLS 阶段被重置。
+- 当前采用方案 A：继续在火山引擎完成 ICP 备案。备案期间保持 `https://watchdeep.net/papers/` 为在线 Demo，不启用旧域名 301。
+- 备案材料、放行顺序和验收命令见 [`icp-filing-and-launch-readiness.md`](./icp-filing-and-launch-readiness.md)。
 
 ---
 
@@ -116,6 +134,8 @@ CiteDuo 已经有一个可用的论文关系探索应用和一个准备长期使
 ---
 
 ## 5. 当前状态基线
+
+> 以下为 2026-11-19 历史基线；当前状态以第 0 节为准。
 
 ### 5.1 域名与基础设施
 
@@ -961,6 +981,8 @@ Prompt
 
 ## 17. Handoff 清单
 
+> 本节为 2026-11-19 原始清单；已完成项以第 0 节和仓库当前 `main` 为准。
+
 ### 17.1 已完成
 
 - [x] 确认 CiteDuo 主域名为 `citeduo.com`。
@@ -1143,4 +1165,3 @@ curl -I https://www.citeduo.com/
 > 在 CiteDuo 仓库中实现服务端渲染的中英双语 landing page，并同时建立 canonical、hreflang、robots、sitemap、示例论文 CTA 和 Star 转化埋点。
 
 完成这项任务后，再进入内容扩展、搜索平台提交、外部印证和旧域名迁移。
-                     

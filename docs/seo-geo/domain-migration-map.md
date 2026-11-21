@@ -2,6 +2,8 @@
 
 > 更新日期：2026-11-19  
 > 执行原则（决策 D-010）：**必须等 `https://citeduo.com` 新站上线、HTTP/浏览器回归通过并接入 Search Console 与 Bing Webmaster 后，才在 `watchdeep.net` 启用 301 重定向，绝不提前断开。**
+>
+> 备案期间的工程准备和放行后验收见 [`icp-filing-and-launch-readiness.md`](./icp-filing-and-launch-readiness.md)。
 
 ## 1. URL 永久重定向映射表（M6-1 / M6-2）
 

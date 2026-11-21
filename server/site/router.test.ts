@@ -2,6 +2,8 @@ import { describe, expect, test } from 'bun:test'
 import { openDb } from '../db'
 import { ensureUsageContext, recordClientEvent } from '../analytics'
 import { articlePath, SITE_ARTICLES } from './content/articles'
+import { categoryPath } from './content/categories'
+import { HOME_COPY } from './content/home'
 import { SITE_FACTS } from './facts'
 import { handlePublicSiteRequest } from './router'
 
@@ -30,15 +32,24 @@ describe('public site SSR, SEO metadata, hreflang, sitemap, and 404 semantics', 
     expect(html).toContain('<link rel="alternate" hreflang="en" href="https://citeduo.com/">')
     expect(html).toContain('<link rel="alternate" hreflang="zh-Hans" href="https://citeduo.com/zh/">')
     expect(html).toContain('<link rel="alternate" hreflang="x-default" href="https://citeduo.com/">')
-    expect(html).toContain('content="https://citeduo.com/site-assets/social-preview.png"')
+    expect(html).toContain('content="https://citeduo.com/site-assets/social-preview.jpg"')
     expect(html).not.toContain('watchdeep.net')
 
     // Deep-link example CTA points to verified pair in /papers/
     expect(html).toContain('/papers/?paper=2304.02643&amp;from=2304.02643&amp;to=2410.24164')
+    expect(html).toContain('/papers/?paper=2406.09246&amp;from=2406.09246&amp;to=2307.15818')
+    expect(html).toContain('OpenVLA cites RT-2')
+    expect(html).not.toContain('to=2410.24164&amp;src=example_openvla-pi0-direct')
 
     const ld = extractJsonLd(html)
-    expect(ld.length).toBeGreaterThanOrEqual(2)
-    expect(ld.map((x) => x['@type'])).toEqual(expect.arrayContaining(['WebSite', 'SoftwareApplication']))
+    expect(ld.length).toBeGreaterThanOrEqual(4)
+    expect(ld.map((x) => x['@type'])).toEqual(
+      expect.arrayContaining(['Organization', 'WebSite', 'SoftwareApplication', 'FAQPage']),
+    )
+    expect(html).toContain('href="/guides/"')
+    expect(html).toContain('href="/compare/"')
+    expect(html).toContain('href="/about"')
+    expect(html).toContain('<details><summary>What does CiteDuo do?</summary>')
   })
 
   test('renders Simplified Chinese landing page at /zh/ and 301-redirects bare /zh preserving query string', async () => {
@@ -58,8 +69,83 @@ describe('public site SSR, SEO metadata, hreflang, sitemap, and 404 semantics', 
     expect(html).toContain('<link rel="alternate" hreflang="zh-Hans" href="https://citeduo.com/zh/">')
   })
 
-  test('renders all 6 bilingual launch articles (12 URLs) with unique titles, reciprocal hreflang, and valid JSON-LD', async () => {
-    expect(SITE_ARTICLES).toHaveLength(6)
+  test('renders bilingual About page with AboutPage and Organization schema', async () => {
+    const enRes = await handlePublicSiteRequest(
+      new Request('https://citeduo.com/about'),
+      new URL('https://citeduo.com/about'),
+    )
+    expect(enRes!.status).toBe(200)
+    const enHtml = await enRes!.text()
+    expect(enHtml).toContain('<h1>What CiteDuo is — and what it is not</h1>')
+    expect(enHtml).toContain('<link rel="canonical" href="https://citeduo.com/about">')
+    expect(enHtml).toContain('<link rel="alternate" hreflang="zh-Hans" href="https://citeduo.com/zh/about">')
+    expect(extractJsonLd(enHtml).map((b) => b['@type'])).toEqual(
+      expect.arrayContaining(['AboutPage', 'Organization', 'BreadcrumbList']),
+    )
+
+    const zhRes = await handlePublicSiteRequest(
+      new Request('https://citeduo.com/zh/about'),
+      new URL('https://citeduo.com/zh/about'),
+    )
+    expect(zhRes!.status).toBe(200)
+    const zhHtml = await zhRes!.text()
+    expect(zhHtml).toContain('<h1>CiteDuo 是什么，以及它不是什么</h1>')
+    expect(zhHtml).toContain('<link rel="canonical" href="https://citeduo.com/zh/about">')
+
+    const bare = await handlePublicSiteRequest(
+      new Request('https://citeduo.com/about/?utm_source=test'),
+      new URL('https://citeduo.com/about/?utm_source=test'),
+    )
+    expect(bare!.status).toBe(301)
+    expect(bare!.headers.get('location')).toBe('/about?utm_source=test')
+  })
+
+  test('renders bilingual category hubs, item lists, and bare-hub redirects', async () => {
+    for (const category of ['guides', 'compare', 'docs'] as const) {
+      for (const locale of ['en', 'zh'] as const) {
+        const path = categoryPath(category, locale)
+        const res = await handlePublicSiteRequest(
+          new Request(`https://citeduo.com${path}`),
+          new URL(`https://citeduo.com${path}`),
+        )
+        expect(res!.status).toBe(200)
+        const html = await res!.text()
+        expect(html).toContain(`<link rel="canonical" href="https://citeduo.com${path}">`)
+        expect(extractJsonLd(html).map((b) => b['@type'])).toEqual(
+          expect.arrayContaining(['CollectionPage', 'BreadcrumbList']),
+        )
+        for (const article of SITE_ARTICLES.filter((item) => item.category === category)) {
+          expect(html).toContain(`href="${articlePath(article, locale)}"`)
+        }
+      }
+    }
+
+    const bare = await handlePublicSiteRequest(
+      new Request('https://citeduo.com/guides?utm_source=test'),
+      new URL('https://citeduo.com/guides?utm_source=test'),
+    )
+    expect(bare!.status).toBe(301)
+    expect(bare!.headers.get('location')).toBe('/guides/?utm_source=test')
+  })
+
+  test('serves llms.txt with canonical facts, key pages, and honest limitations', async () => {
+    const res = await handlePublicSiteRequest(
+      new Request('https://citeduo.com/llms.txt'),
+      new URL('https://citeduo.com/llms.txt'),
+    )
+    expect(res!.status).toBe(200)
+    expect(res!.headers.get('content-type')).toContain('text/plain')
+    const text = await res!.text()
+    expect(text).toContain('# CiteDuo')
+    expect(text).toContain('https://citeduo.com/about')
+    expect(text).toContain(SITE_FACTS.githubRepoUrl)
+    expect(text).toContain('MIT')
+    expect(text).toContain('not a PRISMA screening tool')
+    expect(text).toContain('https://citeduo.com/guides/')
+  })
+
+  test('renders all 7 bilingual launch articles (14 URLs) with unique titles, reciprocal hreflang, and valid JSON-LD', async () => {
+    expect(SITE_ARTICLES).toHaveLength(7)
     const titles = new Set<string>()
 
     for (const article of SITE_ARTICLES) {
@@ -102,6 +188,59 @@ describe('public site SSR, SEO metadata, hreflang, sitemap, and 404 semantics', 
     }
   })
 
+  test('articles expose FAQ/HowTo schema, article images, author identity, and topical related links', async () => {
+    for (const article of SITE_ARTICLES) {
+      for (const locale of ['en', 'zh'] as const) {
+        const path = articlePath(article, locale)
+        const res = await handlePublicSiteRequest(
+          new Request(`https://citeduo.com${path}`),
+          new URL(`https://citeduo.com${path}`),
+        )
+        expect(res!.status).toBe(200)
+        const html = await res!.text()
+        const types = extractJsonLd(html).map((block) => block['@type'])
+        expect(types).toContain('Article')
+
+        const articleSchema = extractJsonLd(html).find((block) => block['@type'] === 'Article')!
+        expect(Array.isArray(articleSchema.image)).toBe(true)
+        expect(articleSchema.datePublished).toBe(article.publishedAt)
+        expect(articleSchema.dateModified).toBe(article.updatedAt)
+        expect((articleSchema.author as Record<string, unknown>).sameAs).toEqual(
+          expect.arrayContaining([SITE_FACTS.githubRepoUrl]),
+        )
+
+        const copy = article[locale]
+        if (copy.faq?.length) {
+          expect(types).toContain('FAQPage')
+          expect(html).toContain(`<summary>${copy.faq[0].question}</summary>`)
+        }
+        if (copy.howTo?.steps.length) {
+          expect(types).toContain('HowTo')
+          expect(html).toContain('id="step-1"')
+        }
+
+        for (const relatedId of article.relatedIds) {
+          const related = SITE_ARTICLES.find((item) => item.id === relatedId)
+          expect(related).toBeDefined()
+          expect(html).toContain(`href="${articlePath(related!, locale)}"`)
+        }
+      }
+    }
+  })
+
+  test('keeps titles and descriptions within search-result-friendly lengths', () => {
+    expect(HOME_COPY.en.metaTitle.length).toBeLessThanOrEqual(60)
+    expect(HOME_COPY.en.description.length).toBeLessThanOrEqual(160)
+    expect(HOME_COPY.zh.metaTitle.length).toBeLessThanOrEqual(60)
+    expect(HOME_COPY.zh.description.length).toBeLessThanOrEqual(120)
+    for (const article of SITE_ARTICLES) {
+      expect(article.en.metaTitle.length).toBeLessThanOrEqual(60)
+      expect(article.en.description.length).toBeLessThanOrEqual(160)
+      expect(article.zh.metaTitle.length).toBeLessThanOrEqual(60)
+      expect(article.zh.description.length).toBeLessThanOrEqual(120)
+    }
+  })
+
   test('serves robots.txt and clean sitemaps without app shell, query states, or admin endpoints', async () => {
     const robotsRes = await handlePublicSiteRequest(
       new Request('https://citeduo.com/robots.txt'),
@@ -136,6 +275,12 @@ describe('public site SSR, SEO metadata, hreflang, sitemap, and 404 semantics', 
 
     expect(enXml).toContain('<loc>https://citeduo.com/</loc>')
     expect(zhXml).toContain('<loc>https://citeduo.com/zh/</loc>')
+    expect(enXml).toContain('<loc>https://citeduo.com/about</loc>')
+    expect(zhXml).toContain('<loc>https://citeduo.com/zh/about</loc>')
+    for (const category of ['guides', 'compare', 'docs']) {
+      expect(enXml).toContain(`<loc>https://citeduo.com/${category}/</loc>`)
+      expect(zhXml).toContain(`<loc>https://citeduo.com/zh/${category}/</loc>`)
+    }
     for (const xml of [enXml, zhXml]) {
       expect(xml).not.toContain('/papers/')
       expect(xml).not.toContain('?from=')

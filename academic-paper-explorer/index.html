@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="%PUBLIC_URL%site-assets/favicon.svg" type="image/svg+xml" />
 
   <title>CiteDuo · 学术论文关系网络探索工作台</title>
   <meta name="description"
@@ -11,21 +12,21 @@
   <meta name="robots" content="noindex,follow" />
   <meta name="theme-color" content="#0f172a" />
 
-  <!-- 链接预览需要绝对地址（爬虫不解析相对路径）。自托管时可把域名替换为你自己的实例地址。 -->
+  <!-- 链接预览需要绝对地址；构建时通过 VITE_BASE 与 VITE_PUBLIC_ORIGIN 注入。 -->
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="CiteDuo" />
-  <meta property="og:url" content="https://citeduo.com/papers/" />
+  <meta property="og:url" content="%PUBLIC_URL%" />
   <meta property="og:title" content="CiteDuo · 查清两篇论文到底是怎么连上的" />
   <meta property="og:description"
     content="引用网络图、两篇论文之间的可解释关联路径、应用内 arXiv 阅读与双语翻译。自托管、本地优先、MIT。" />
-  <meta property="og:image" content="https://citeduo.com/site-assets/social-preview.png" />
+  <meta property="og:image" content="%PUBLIC_SOCIAL_IMAGE%" />
   <meta property="og:image:width" content="1280" />
   <meta property="og:image:height" content="640" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="CiteDuo · 查清两篇论文到底是怎么连上的" />
   <meta name="twitter:description"
     content="引用网络图、两篇论文之间的可解释关联路径、应用内 arXiv 阅读与双语翻译。自托管、本地优先、MIT。" />
-  <meta name="twitter:image" content="https://citeduo.com/site-assets/social-preview.png" />
+  <meta name="twitter:image" content="%PUBLIC_SOCIAL_IMAGE%" />
 </head>
 
 <body>

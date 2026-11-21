@@ -1,6 +1,16 @@
 import { articlePath, SITE_ARTICLES } from './content/articles'
+import { categoryPath } from './content/categories'
 import { SITE_FACTS, type SiteLocale } from './facts'
-import { absoluteSiteUrl, escapeHtml, renderArticlePage, renderLandingPage, renderNotFoundPage } from './render'
+import {
+  absoluteSiteUrl,
+  escapeHtml,
+  renderAboutPage,
+  renderArticlePage,
+  renderCategoryPage,
+  renderLandingPage,
+  renderNotFoundPage,
+} from './render'
+import type { ArticleCategory } from './types'
 
 const SITE_ASSETS_DIR = new URL('./assets', import.meta.url).pathname
 
@@ -19,13 +29,29 @@ export function listSitemapEntries(locale: SiteLocale): SitemapEntry[] {
       enUrl: absoluteSiteUrl('/'),
       zhUrl: absoluteSiteUrl('/zh/'),
     },
+    {
+      loc: absoluteSiteUrl(locale === 'zh' ? '/zh/about' : '/about'),
+      lastmod: SITE_FACTS.lastUpdated,
+      enUrl: absoluteSiteUrl('/about'),
+      zhUrl: absoluteSiteUrl('/zh/about'),
+    },
   ]
+  for (const category of ['guides', 'compare', 'docs'] as ArticleCategory[]) {
+    const enUrl = absoluteSiteUrl(categoryPath(category, 'en'))
+    const zhUrl = absoluteSiteUrl(categoryPath(category, 'zh'))
+    entries.push({
+      loc: locale === 'zh' ? zhUrl : enUrl,
+      lastmod: SITE_FACTS.lastUpdated,
+      enUrl,
+      zhUrl,
+    })
+  }
   for (const article of SITE_ARTICLES) {
     const enUrl = absoluteSiteUrl(articlePath(article, 'en'))
     const zhUrl = absoluteSiteUrl(articlePath(article, 'zh'))
     entries.push({
       loc: locale === 'zh' ? zhUrl : enUrl,
-      lastmod: article.lastmod,
+      lastmod: article.updatedAt,
       enUrl,
       zhUrl,
     })
@@ -35,6 +61,54 @@ export function listSitemapEntries(locale: SiteLocale): SitemapEntry[] {
 
 export function renderRobotsTxt(): string {
   return `User-agent: *\nAllow: /\n\nSitemap: ${absoluteSiteUrl('/sitemap.xml')}\n`
+}
+
+export function renderLlmsTxt(): string {
+  const articles = SITE_ARTICLES.map(
+    (article) =>
+      `- ${article.en.title}: ${absoluteSiteUrl(articlePath(article, 'en'))} | ${absoluteSiteUrl(articlePath(article, 'zh'))}`,
+  ).join('\n')
+  return `# CiteDuo
+
+> CiteDuo is an MIT-licensed, local-first tool for exploring citation networks and explaining how two academic papers are connected. It ranks direct citations, bibliographic coupling, co-citation, recommender links, and SPECTER2 similarity as distinct evidence types.
+
+## Canonical facts
+
+- Website: ${absoluteSiteUrl('/')}
+- About and methodology: ${absoluteSiteUrl('/about')}
+- GitHub: ${SITE_FACTS.githubRepoUrl}
+- License: ${SITE_FACTS.licenseSpdx}
+- Maintainer: ${SITE_FACTS.maintainer} (${SITE_FACTS.maintainerUrl})
+- Data sources: Semantic Scholar, OpenAlex, SPECTER2 embeddings, arXiv / ar5iv
+- Runtime: one Bun process with one SQLite database; self-hostable with Docker or Bun
+
+## Core capabilities
+
+- Search papers and build interactive citation networks.
+- Explain how two specified papers connect, hop by hop, with alternatives.
+- Distinguish direct citations, bibliographic coupling, co-citation, recommender affinity, and semantic similarity.
+- Read arXiv sections in-app and optionally translate paragraphs.
+- Keep cached graphs, notes, favourites, and collections locally.
+
+## Known limitations
+
+- A bounded live search that finds no path is inconclusive, not proof that two papers are unrelated.
+- Citation coverage depends on Semantic Scholar and OpenAlex metadata.
+- CiteDuo is not a PRISMA screening tool, reference manager, or exhaustive paywalled citation index.
+- In-app full text depends on arXiv availability and the operator's PAPER_CONTENT_MODE setting.
+
+## Key pages
+
+- English home: ${absoluteSiteUrl('/')}
+- Chinese home: ${absoluteSiteUrl('/zh/')}
+- Guides: ${absoluteSiteUrl('/guides/')}
+- Comparisons: ${absoluteSiteUrl('/compare/')}
+- Documentation: ${absoluteSiteUrl('/docs/')}
+
+## Articles
+
+${articles}
+`
 }
 
 export function renderSitemapIndexXml(): string {
@@ -116,9 +190,16 @@ export function isPublicSitePath(pathname: string): boolean {
     pathname === '/zh' ||
     pathname.startsWith('/zh/') ||
     pathname.startsWith('/guides/') ||
+    pathname === '/guides' ||
     pathname.startsWith('/compare/') ||
+    pathname === '/compare' ||
     pathname.startsWith('/docs/') ||
+    pathname === '/docs' ||
+    pathname === '/about' ||
+    pathname.startsWith('/about/') ||
+    pathname.startsWith('/zh/about') ||
     pathname.startsWith('/site-assets/') ||
+    pathname === '/llms.txt' ||
     pathname === '/robots.txt' ||
     pathname === '/sitemap.xml' ||
     pathname === '/sitemap-en.xml' ||
@@ -156,6 +237,17 @@ export async function handlePublicSiteRequest(req: Request, url: URL): Promise<R
   if (p === '/sitemap.xml') return headOnly(xmlResponse(renderSitemapIndexXml()))
   if (p === '/sitemap-en.xml') return headOnly(xmlResponse(renderLocaleSitemapXml('en')))
   if (p === '/sitemap-zh.xml') return headOnly(xmlResponse(renderLocaleSitemapXml('zh')))
+  if (p === '/llms.txt') {
+    return headOnly(
+      new Response(renderLlmsTxt(), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=300',
+        },
+      }),
+    )
+  }
 
   if (p.startsWith('/site-assets/')) {
     const rel = p.slice('/site-assets/'.length)
@@ -184,6 +276,25 @@ export async function handlePublicSiteRequest(req: Request, url: URL): Promise<R
   }
   if (p === '/zh/') {
     return headOnly(htmlResponse(renderLandingPage('zh'), 200))
+  }
+
+  if (p === '/about') return headOnly(htmlResponse(renderAboutPage('en'), 200))
+  if (p === '/zh/about') return headOnly(htmlResponse(renderAboutPage('zh'), 200))
+  if (p === '/about/' || p === '/zh/about/') {
+    return headOnly(redirectPermanent(p.replace(/\/+$/, ''), url.search))
+  }
+
+  for (const category of ['guides', 'compare', 'docs'] as ArticleCategory[]) {
+    if (p === `/${category}`) return headOnly(redirectPermanent(`/${category}/`, url.search))
+    if (p === `/${category}/`) {
+      return headOnly(htmlResponse(renderCategoryPage(category, 'en'), 200))
+    }
+    if (p === `/zh/${category}`) {
+      return headOnly(redirectPermanent(`/zh/${category}/`, url.search))
+    }
+    if (p === `/zh/${category}/`) {
+      return headOnly(htmlResponse(renderCategoryPage(category, 'zh'), 200))
+    }
   }
 
   // Canonicalize trailing slashes on article URLs (/guides/foo/ -> /guides/foo)

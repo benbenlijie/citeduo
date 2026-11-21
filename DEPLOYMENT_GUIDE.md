@@ -314,7 +314,7 @@ curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" https://citeduo.com/papers/
 
 若不想占用域名根（根已被其他站点使用），可挂到子路径：
 
-1. 构建时指定 base：`VITE_BASE=/papers/ bun run build:web`（前端资源与 API 会走 `/papers/...`）
+1. 构建时指定 base 和公开来源：`VITE_BASE=/papers/ VITE_PUBLIC_ORIGIN=https://你的域名 bun run build:web`（前端资源与 API 会走 `/papers/...`，OG/Twitter 使用绝对地址）
 2. `server/.env` 增加：`BASE_PATH=/papers`（用于 `?token=` 登录后重定向回子路径）
 3. 反向代理（nginx，注意 `proxy_pass` 末尾的 `/` 会剥离前缀）：
 
@@ -337,7 +337,7 @@ location /papers/ {
 
 ```bash
 cp scripts/deploy.env.example scripts/deploy.env
-$EDITOR scripts/deploy.env      # REMOTE / DIR / VITE_BASE / SERVICE / PUBLIC_URL
+$EDITOR scripts/deploy.env      # REMOTE / DIR / VITE_BASE / VITE_PUBLIC_ORIGIN / SERVICE / PUBLIC_URL
 ```
 
 之后日常改完代码：
@@ -346,7 +346,7 @@ $EDITOR scripts/deploy.env      # REMOTE / DIR / VITE_BASE / SERVICE / PUBLIC_UR
 bun run deploy          # = bash scripts/deploy.sh
 ```
 
-脚本会：按 `VITE_BASE` 构建前端 → `rsync` 同步（排除 .git/node_modules/data/server/.env/docs）→ 远端 `bun install --frozen-lockfile --production` → `systemctl restart $SERVICE` → 健康检查 `$PUBLIC_URL`（留空则跳过）。
+脚本会：按 `VITE_BASE` 和 `VITE_PUBLIC_ORIGIN` 构建前端 → `rsync` 同步（排除 .git/node_modules/data/server/.env/docs）→ 远端 `bun install --frozen-lockfile --production` → `systemctl restart $SERVICE` → 健康检查 `$PUBLIC_URL`（留空则跳过）。当前临时 Demo 应使用 `VITE_BASE=/papers/` 和 `VITE_PUBLIC_ORIGIN=https://watchdeep.net`；ICP 备案完成后改为 `https://citeduo.com`。
 
 常用变体（环境变量优先于 `deploy.env`）：
 

@@ -1,7 +1,9 @@
+import { ABOUT_COPY } from './content/about'
 import { articlePath, SITE_ARTICLES } from './content/articles'
+import { CATEGORY_COPY, categoryPath } from './content/categories'
 import { HOME_COPY } from './content/home'
 import { buildAppHomeUrl, buildAppPairUrl, buildGithubOutboundUrl, SITE_FACTS, type SiteLocale } from './facts'
-import type { ResolvedPageMeta, SiteArticleSpec } from './types'
+import type { ArticleCategory, FaqItem, HowToSpec, ResolvedPageMeta, SiteArticleSpec } from './types'
 
 export function escapeHtml(value: string): string {
   return value
@@ -17,65 +19,196 @@ export function absoluteSiteUrl(pathname: string): string {
   return `${SITE_FACTS.canonicalOrigin}${clean}`
 }
 
+function organizationJsonLd(description: string): Record<string, unknown> {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': absoluteSiteUrl('/about#organization'),
+    name: SITE_FACTS.brandName,
+    url: absoluteSiteUrl('/about'),
+    sameAs: [SITE_FACTS.githubRepoUrl, SITE_FACTS.maintainerUrl],
+    description,
+  }
+}
+
+function faqJsonLd(faq: FaqItem[] | undefined): Record<string, unknown> | null {
+  if (!faq?.length) return null
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faq.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: { '@type': 'Answer', text: item.answer },
+    })),
+  }
+}
+
+function howToJsonLd(howTo: HowToSpec | undefined, canonicalPath: string): Record<string, unknown> | null {
+  if (!howTo?.steps.length) return null
+  const pageUrl = absoluteSiteUrl(canonicalPath)
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name: howTo.name,
+    step: howTo.steps.map((step, index) => ({
+      '@type': 'HowToStep',
+      position: index + 1,
+      name: step.name,
+      text: step.text,
+      url: `${pageUrl}#step-${index + 1}`,
+    })),
+  }
+}
+
+function renderFaqSection(faq: FaqItem[] | undefined, locale: SiteLocale): string {
+  if (!faq?.length) return ''
+  const isZh = locale === 'zh'
+  return `<section class="article-sec faq" id="faq">
+    <h2>${isZh ? '常见问题' : 'Frequently asked questions'}</h2>
+    <div class="faq-list">
+      ${faq
+        .map(
+          (item) =>
+            `<details><summary>${escapeHtml(item.question)}</summary><p>${escapeHtml(item.answer)}</p></details>`,
+        )
+        .join('\n')}
+    </div>
+  </section>`
+}
+
+function renderHowToSection(howTo: HowToSpec | undefined, locale: SiteLocale): string {
+  if (!howTo?.steps.length) return ''
+  const isZh = locale === 'zh'
+  return `<section class="article-sec" id="step-by-step">
+    <h2>${escapeHtml(howTo.name)}</h2>
+    <ol class="howto-list">
+      ${howTo.steps
+        .map(
+          (step, index) =>
+            `<li id="step-${index + 1}"><strong>${escapeHtml(step.name)}</strong><p>${escapeHtml(step.text)}</p></li>`,
+        )
+        .join('\n')}
+    </ol>
+    <p class="sub">${isZh ? '步骤与页面下方 FAQ、正文证据表一致；先按顺序核查，再回到原文确认语境。' : 'These steps match the evidence table and FAQ below. Verify the source paragraph before making a claim.'}</p>
+  </section>`
+}
+
 const SITE_CSS = `
 :root{--bg:#070c16;--panel:#0f172a;--panel2:#111c33;--line:#1e293b;--text:#e5e7eb;--muted:#94a3b8;--accent:#34d399;--accent-bg:rgba(52,211,153,.13);--blue:#60a5fa;--amber:#fbbf24}
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:radial-gradient(1080px 520px at 16% -10%,#102c44 0%,transparent 60%),var(--bg);color:var(--text);font:16px/1.68 ui-sans-serif,system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh}
+html{scroll-behavior:smooth}
+body{background:radial-gradient(1080px 520px at 16% -10%,#102c44 0%,transparent 60%),var(--bg);color:var(--text);font:1rem/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;min-height:100vh}
 a{color:#7dd3fc;text-decoration:none}
 a:hover{text-decoration:underline}
-.wrap{max-width:1120px;margin:0 auto;padding:0 22px}
-.site-header{border-bottom:1px solid var(--line);background:rgba(7,12,22,.86);backdrop-filter:blur(10px);position:sticky;top:0;z-index:20}
-.nav{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 0;flex-wrap:wrap}
-.brand{display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:19px;color:#fff;letter-spacing:-.02em}
+.wrap{width:100%;max-width:70rem;margin:0 auto;padding:0 1rem}
+.site-header{border-bottom:1px solid var(--line);background:rgba(7,12,22,.92);backdrop-filter:blur(10px);position:sticky;top:0;z-index:20}
+.nav{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.5rem 0;position:relative}
+.brand{display:inline-flex;align-items:center;gap:.6rem;min-height:2.75rem;font-weight:700;font-size:1.15rem;color:#fff;letter-spacing:-.02em}
 .brand:hover{text-decoration:none}
-.badge-dot{width:10px;height:10px;border-radius:99px;background:linear-gradient(135deg,var(--accent),var(--blue))}
-.nav-links{display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:14px}
-.nav-links a{color:var(--muted)}
+.badge-dot{width:.625rem;height:.625rem;border-radius:99px;background:linear-gradient(135deg,var(--accent),var(--blue))}
+.nav-links{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;font-size:.875rem}
+.nav-links a{display:inline-flex;align-items:center;min-height:2.75rem;color:var(--muted)}
 .nav-links a:hover,.nav-links a.active{color:#fff;text-decoration:none}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;padding:10px 16px;font-weight:600;font-size:14px;border:1px solid var(--line);background:var(--panel2);color:#fff;text-decoration:none;transition:border-color .15s,background .15s}
+.mobile-menu{display:block;position:relative;margin-left:auto}
+.mobile-menu summary{display:inline-flex;align-items:center;justify-content:center;min-height:2.75rem;padding:0 .9rem;border:1px solid var(--line);border-radius:.55rem;background:var(--panel2);color:#fff;font-weight:600;cursor:pointer;list-style:none}
+.mobile-menu summary::-webkit-details-marker{display:none}
+.mobile-menu[open] summary{border-color:#3b82f6}
+.mobile-menu:not([open]) .mobile-nav{display:none}
+.mobile-nav{position:fixed;top:4.25rem;left:1rem;right:1rem;width:auto;display:flex;flex-direction:column;gap:.125rem;padding:.5rem;background:var(--panel);border:1px solid var(--line);border-radius:.75rem;box-shadow:0 18px 40px rgba(0,0,0,.45);z-index:30}
+.mobile-nav a{display:flex;align-items:center;min-height:2.75rem;padding:0 .75rem;border-radius:.45rem;color:var(--text)}
+.mobile-nav a:hover{background:var(--panel2);text-decoration:none}
+.mobile-nav .btn{margin-top:.35rem;justify-content:center}
+.desktop-nav{display:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:2.75rem;border-radius:.65rem;padding:.65rem 1rem;font-weight:600;font-size:.875rem;border:1px solid var(--line);background:var(--panel2);color:#fff;text-decoration:none;transition:border-color .15s,background .15s}
 .btn:hover{border-color:#3b82f6;background:#162544;text-decoration:none}
 .btn.primary{background:#059669;border-color:#10b981;color:#fff}
 .btn.primary:hover{background:#10b981}
-.btn.sm{padding:6px 11px;font-size:13px;border-radius:8px}
-.hero{padding:64px 0 42px}
-.eyebrow{display:inline-block;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid rgba(52,211,153,.3);border-radius:999px;padding:4px 11px;margin-bottom:16px}
-h1{font-size:clamp(30px,4.4vw,48px);line-height:1.14;letter-spacing:-.03em;margin:0 0 18px;color:#fff;max-width:880px}
-.lead{font-size:18px;color:#cbd5e1;max-width:820px;margin:0 0 26px}
-.cta-row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-section{padding:34px 0}
-h2{font-size:24px;line-height:1.28;letter-spacing:-.02em;color:#fff;margin:0 0 10px}
-h3{font-size:17px;line-height:1.35;color:#f8fafc;margin:0 0 8px}
-.sub{color:var(--muted);margin:0 0 20px;max-width:780px;font-size:15px}
-.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
-.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
-.card{background:linear-gradient(180deg,rgba(17,28,51,.88),rgba(15,23,42,.92));border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;justify-content:space-between;gap:12px}
-.card p{margin:0;color:#cbd5e1;font-size:14.5px}
-.pair-endpoints{font-size:13px;color:#93c5fd;background:rgba(15,23,42,.8);border:1px solid rgba(59,130,246,.22);border-radius:9px;padding:9px 11px;line-height:1.45}
-.shot{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.btn.sm{min-height:2.75rem;padding:.5rem .75rem;font-size:.8125rem;border-radius:.5rem}
+.hero{padding:2.5rem 0 1.75rem}
+.eyebrow{display:inline-block;font-size:.75rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-bg);border:1px solid rgba(52,211,153,.3);border-radius:999px;padding:.25rem .7rem;margin-bottom:1rem}
+h1{font-size:clamp(1.9rem,8vw,3rem);line-height:1.14;letter-spacing:-.03em;margin:0 0 1.1rem;color:#fff;max-width:55rem}
+.lead{font-size:1.05rem;color:#cbd5e1;max-width:51rem;margin:0 0 1.6rem}
+.cta-row{display:flex;gap:.75rem;flex-wrap:wrap;align-items:center}
+.cta-row .btn{flex:1 1 100%}
+section{padding:1.75rem 0}
+h2{font-size:clamp(1.3rem,4vw,1.5rem);line-height:1.28;letter-spacing:-.02em;color:#fff;margin:0 0 .65rem}
+h3{font-size:1.05rem;line-height:1.35;color:#f8fafc;margin:0 0 .5rem}
+.sub{color:var(--muted);margin:0 0 1.25rem;max-width:48rem;font-size:.9375rem}
+.grid-2,.grid-3,.category-grid{display:grid;grid-template-columns:1fr;gap:1rem}
+.card{background:linear-gradient(180deg,rgba(17,28,51,.88),rgba(15,23,42,.92));border:1px solid var(--line);border-radius:.9rem;padding:1rem;display:flex;flex-direction:column;justify-content:space-between;gap:.75rem;min-width:0}
+.card p{margin:0;color:#cbd5e1;font-size:.9rem}
+.pair-endpoints{font-size:.875rem;color:#93c5fd;background:rgba(15,23,42,.8);border:1px solid rgba(59,130,246,.22);border-radius:.55rem;padding:.6rem .7rem;line-height:1.45;overflow-wrap:anywhere}
+.shot{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:.9rem;overflow:hidden}
 .shot img{display:block;width:100%;height:auto}
-.shot figcaption{padding:11px 14px;font-size:13px;color:var(--muted);border-top:1px solid var(--line)}
-.list-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
-.list-box ul{margin:10px 0 0;padding-left:20px;color:#cbd5e1}
-.list-box li{margin-bottom:8px;font-size:15px}
-.star-banner{background:linear-gradient(135deg,rgba(5,150,105,.18),rgba(30,58,138,.28));border:1px solid rgba(52,211,153,.35);border-radius:16px;padding:26px;margin:20px 0}
-.article-shell{max-width:840px;margin:0 auto;padding:44px 0 36px}
-.answer-box{background:rgba(16,185,129,.09);border-left:4px solid var(--accent);border-radius:10px;padding:16px 18px;margin:22px 0 28px;color:#ecfdf5;font-size:16px}
-.meta-line{font-size:13px;color:var(--muted);margin-bottom:18px}
-.article-sec{margin:32px 0}
-.article-sec p{color:#cbd5e1;margin:0 0 14px}
-.article-sec ul{padding-left:22px;color:#cbd5e1}
-.article-sec li{margin-bottom:9px}
-.table-wrap{overflow-x:auto;margin:16px 0;border:1px solid var(--line);border-radius:12px}
-table{width:100%;border-collapse:collapse;background:var(--panel);font-size:14px}
-th,td{text-align:left;padding:11px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+.shot figcaption{padding:.7rem .9rem;font-size:.875rem;color:var(--muted);border-top:1px solid var(--line)}
+.list-box{background:var(--panel);border:1px solid var(--line);border-radius:.9rem;padding:1rem}
+.list-box ul{margin:.6rem 0 0;padding-left:1.25rem;color:#cbd5e1}
+.list-box li{margin-bottom:.5rem;font-size:.9375rem}
+.star-banner{background:linear-gradient(135deg,rgba(5,150,105,.18),rgba(30,58,138,.28));border:1px solid rgba(52,211,153,.35);border-radius:1rem;padding:1.25rem;margin:1.25rem 0}
+.article-shell{max-width:52.5rem;margin:0 auto;padding:1.75rem 0 2rem}
+.answer-box{background:rgba(16,185,129,.09);border-left:4px solid var(--accent);border-radius:.65rem;padding:1rem 1.1rem;margin:1.4rem 0 1.75rem;color:#ecfdf5;font-size:1rem;overflow-wrap:anywhere}
+.meta-line{font-size:.875rem;color:var(--muted);margin-bottom:1.1rem}
+.article-sec{margin:2rem 0}
+section[id],li[id]{scroll-margin-top:5rem}
+.article-sec p{color:#cbd5e1;margin:0 0 .9rem}
+.article-sec ul{padding-left:1.35rem;color:#cbd5e1}
+.article-sec li{margin-bottom:.55rem}
+.table-wrap{overflow-x:auto;margin:1rem 0;border:1px solid var(--line);border-radius:.75rem;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;background:var(--panel);font-size:.875rem}
+th,td{text-align:left;padding:.7rem .8rem;border-bottom:1px solid var(--line);vertical-align:top}
 th{color:#f8fafc;background:rgba(17,28,51,.9);font-weight:600}
 tr:last-child td{border-bottom:0}
-pre{background:#050811;border:1px solid var(--line);border-radius:11px;padding:14px 16px;overflow-x:auto;color:#e2e8f0;font-size:13.5px;line-height:1.55}
-.breadcrumbs{font-size:13px;color:var(--muted);margin-bottom:14px}
-.site-footer{border-top:1px solid var(--line);padding:32px 0 48px;margin-top:36px;color:var(--muted);font-size:13.5px}
-.footer-grid{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
-@media(max-width:720px){.hero{padding:40px 0 26px}.lead{font-size:16px}}
+pre{background:#050811;border:1px solid var(--line);border-radius:.7rem;padding:.9rem 1rem;overflow-x:auto;color:#e2e8f0;font-size:.8125rem;line-height:1.55;-webkit-overflow-scrolling:touch}
+.breadcrumbs{font-size:.875rem;color:var(--muted);margin-bottom:.9rem}
+.breadcrumbs a,.card-title,.card-link{display:inline-flex;align-items:center;min-height:2.75rem}
+.breadcrumbs a{justify-content:center;min-width:2.75rem}
+.card-title{width:100%}
+.faq-list{display:grid;gap:.625rem}
+.faq-list details{background:var(--panel);border:1px solid var(--line);border-radius:.7rem;padding:.875rem 1rem}
+.faq-list summary{display:flex;align-items:center;min-height:2.75rem;cursor:pointer;color:#f8fafc;font-weight:600}
+.faq-list p{margin:.6rem 0 0;color:#cbd5e1}
+.howto-list{padding-left:1.5rem;color:#cbd5e1}
+.howto-list li{margin-bottom:1rem}
+.howto-list strong{color:#f8fafc}
+.howto-list p{margin:.25rem 0 0}
+.site-footer{border-top:1px solid var(--line);padding:2rem 0 3rem;margin-top:2.25rem;color:var(--muted);font-size:.875rem}
+.site-footer a{display:inline-flex;align-items:center;min-height:2.75rem}
+.footer-grid{display:flex;flex-direction:column;gap:1rem}
+.footer-grid .nav-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.75rem,1fr));gap:0 1rem;width:100%}
+.footer-grid .nav-links a{display:flex;align-items:center;justify-content:center;min-width:2.75rem;min-height:2.75rem;border-bottom:1px solid var(--line)}
+.footer-grid .nav-links a:last-child{border-bottom:0}
+@media(max-width:39.9375rem){
+  .table-wrap{overflow:visible;border:0}
+  .table-wrap table,.table-wrap tbody,.table-wrap tr,.table-wrap td{display:block;width:100%}
+  .table-wrap thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .table-wrap tr{background:var(--panel);border:1px solid var(--line);border-radius:.75rem;margin-bottom:.75rem;padding:.35rem 0}
+  .table-wrap td{border:0;padding:.45rem .85rem}
+  .table-wrap td::before{content:attr(data-label);display:block;color:var(--muted);font-size:.75rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.15rem}
+}
+@media(min-width:40rem){
+  .wrap{padding:0 1.375rem}
+  .hero{padding:3.5rem 0 2.5rem}
+  .cta-row .btn{flex:0 1 auto}
+  .grid-2,.grid-3,.category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .footer-grid{flex-direction:row;justify-content:space-between;align-items:flex-start}
+  .footer-grid .nav-links{width:auto;display:flex;flex-wrap:wrap;gap:1rem}
+  .footer-grid .nav-links a{min-height:2.75rem;border-bottom:0;padding:0}
+  .article-shell{padding:2.25rem 0}
+}
+@media(min-width:48rem){
+  .mobile-menu{display:none}
+  .desktop-nav{display:flex}
+  .nav{flex-wrap:nowrap}
+  .hero{padding:4rem 0 2.625rem}
+  .grid-3,.category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .article-shell{padding:2.75rem 0 2.25rem}
+}
+@media(min-width:64rem){
+  .grid-3,.category-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 `
 
 function clientBeaconScript(pageEvent: 'landing_view' | 'page_view', locale: SiteLocale): string {
@@ -136,6 +269,7 @@ function renderHead(meta: ResolvedPageMeta, jsonLdBlocks: Record<string, unknown
   return `<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/site-assets/favicon.svg" type="image/svg+xml">
 <title>${escapeHtml(meta.title)}</title>
 <meta name="description" content="${escapeHtml(meta.description)}">
 <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
@@ -150,6 +284,8 @@ function renderHead(meta: ResolvedPageMeta, jsonLdBlocks: Record<string, unknown
 <meta property="og:image" content="${escapeHtml(socialImg)}">
 <meta property="og:image:width" content="${SITE_FACTS.socialImageWidth}">
 <meta property="og:image:height" content="${SITE_FACTS.socialImageHeight}">
+${meta.ogType === 'article' && meta.publishedAt ? `<meta property="article:published_time" content="${escapeHtml(meta.publishedAt)}">` : ''}
+${meta.ogType === 'article' ? `<meta property="article:modified_time" content="${escapeHtml(meta.updatedAt)}">` : ''}
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escapeHtml(meta.title)}">
 <meta name="twitter:description" content="${escapeHtml(meta.description)}">
@@ -163,12 +299,20 @@ ${jsonLdHtml}
 function renderHeader(meta: ResolvedPageMeta): string {
   const isZh = meta.locale === 'zh'
   const homeHref = isZh ? '/zh/' : '/'
-  const guidesAnchor = `${homeHref}#guides`
+  const guidesHref = categoryPath('guides', meta.locale)
+  const compareHref = categoryPath('compare', meta.locale)
   const selfHostHref = isZh ? '/zh/docs/self-hosting-citeduo' : '/docs/self-hosting-citeduo'
   const switchHref = isZh ? meta.enPath : meta.zhPath
   const switchLabel = isZh ? 'English' : '简体中文'
   const appHref = buildAppHomeUrl(isZh ? 'header_zh' : 'header_en')
   const githubHref = buildGithubOutboundUrl('header', meta.locale)
+  const primaryLinks = `
+      <a href="${escapeHtml(guidesHref)}">${isZh ? '方法指南' : 'Guides'}</a>
+      <a href="${escapeHtml(compareHref)}">${isZh ? '工具对比' : 'Compare'}</a>
+      <a href="${escapeHtml(selfHostHref)}">${isZh ? '自托管部署' : 'Self-Hosting'}</a>
+      <a href="${escapeHtml(appHref)}">${isZh ? '论文工作台' : 'Workspace'}</a>
+      <a href="${escapeHtml(githubHref)}" target="_blank" rel="noopener noreferrer" data-track="github_outbound" data-placement="header">GitHub</a>`
+  const switchLink = `<a class="btn sm" href="${escapeHtml(switchHref)}" hreflang="${isZh ? 'en' : 'zh-Hans'}">${switchLabel}</a>`
 
   return `<header class="site-header">
   <div class="wrap nav">
@@ -176,12 +320,16 @@ function renderHeader(meta: ResolvedPageMeta): string {
       <span class="badge-dot" aria-hidden="true"></span>
       <span>${escapeHtml(SITE_FACTS.brandName)}</span>
     </a>
-    <nav class="nav-links" aria-label="${isZh ? '主导航' : 'Primary'}">
-      <a href="${escapeHtml(guidesAnchor)}">${isZh ? '指南与对比' : 'Guides & Compare'}</a>
-      <a href="${escapeHtml(selfHostHref)}">${isZh ? '自托管部署' : 'Self-Hosting'}</a>
-      <a href="${escapeHtml(appHref)}">${isZh ? '论文工作台' : 'Workspace'}</a>
-      <a href="${escapeHtml(githubHref)}" target="_blank" rel="noopener noreferrer" data-track="github_outbound" data-placement="header">GitHub</a>
-      <a class="btn sm" href="${escapeHtml(switchHref)}" hreflang="${isZh ? 'en' : 'zh-Hans'}">${switchLabel}</a>
+    <details class="mobile-menu">
+      <summary aria-label="${isZh ? '打开导航菜单' : 'Open navigation menu'}">${isZh ? '菜单' : 'Menu'}</summary>
+      <nav class="mobile-nav" aria-label="${isZh ? '移动端导航' : 'Mobile navigation'}">
+        ${primaryLinks}
+        ${switchLink}
+      </nav>
+    </details>
+    <nav class="nav-links desktop-nav" aria-label="${isZh ? '主导航' : 'Primary'}">
+      ${primaryLinks}
+      ${switchLink}
     </nav>
   </div>
 </header>`
@@ -189,6 +337,11 @@ function renderHeader(meta: ResolvedPageMeta): string {
 
 function renderFooter(locale: SiteLocale): string {
   const isZh = locale === 'zh'
+  const homeHref = isZh ? '/zh/' : '/'
+  const aboutHref = isZh ? '/zh/about' : '/about'
+  const guidesHref = categoryPath('guides', locale)
+  const compareHref = categoryPath('compare', locale)
+  const docsHref = categoryPath('docs', locale)
   return `<footer class="site-footer">
   <div class="wrap footer-grid">
     <div>
@@ -197,10 +350,14 @@ function renderFooter(locale: SiteLocale): string {
           ? `本地优先开源学术论文关系探索器（${SITE_FACTS.licenseSpdx} 许可证）`
           : `Open-source, local-first academic paper relation explorer (${SITE_FACTS.licenseSpdx} License)`
       }<br>
-      <span>${isZh ? '最后更新' : 'Last updated'}: ${SITE_FACTS.lastUpdated} · ${escapeHtml(SITE_FACTS.maintainer)}</span>
+      <span>${isZh ? '最后更新' : 'Last updated'}: ${SITE_FACTS.lastUpdated} · <a href="${escapeHtml(aboutHref)}">${escapeHtml(SITE_FACTS.maintainer)}</a></span>
     </div>
     <div class="nav-links">
-      <a href="${isZh ? '/zh/' : '/'}">${isZh ? '首页' : 'Home'}</a>
+      <a href="${escapeHtml(homeHref)}">${isZh ? '首页' : 'Home'}</a>
+      <a href="${escapeHtml(guidesHref)}">${isZh ? '指南' : 'Guides'}</a>
+      <a href="${escapeHtml(compareHref)}">${isZh ? '对比' : 'Compare'}</a>
+      <a href="${escapeHtml(docsHref)}">${isZh ? '文档' : 'Docs'}</a>
+      <a href="${escapeHtml(aboutHref)}">${isZh ? '关于' : 'About'}</a>
       <a href="${escapeHtml(buildAppHomeUrl(isZh ? 'footer_zh' : 'footer_en'))}">${isZh ? '进入应用 (/papers/)' : 'Open App (/papers/)'}</a>
       <a href="/sitemap.xml">Sitemap</a>
       <a href="${escapeHtml(buildGithubOutboundUrl('footer', locale))}" target="_blank" rel="noopener noreferrer" data-track="github_outbound" data-placement="footer">GitHub (${SITE_FACTS.licenseSpdx})</a>
@@ -222,7 +379,7 @@ export function renderLandingPage(locale: SiteLocale): string {
     canonicalPath,
     enPath: '/',
     zhPath: '/zh/',
-    lastmod: SITE_FACTS.lastUpdated,
+    updatedAt: SITE_FACTS.lastUpdated,
     ogType: 'website',
   }
 
@@ -233,6 +390,7 @@ export function renderLandingPage(locale: SiteLocale): string {
   const selfHostHref = isZh ? '/zh/docs/self-hosting-citeduo' : '/docs/self-hosting-citeduo'
 
   const jsonLd: Record<string, unknown>[] = [
+    organizationJsonLd(copy.description),
     {
       '@context': 'https://schema.org',
       '@type': 'WebSite',
@@ -240,6 +398,7 @@ export function renderLandingPage(locale: SiteLocale): string {
       url: absoluteSiteUrl(canonicalPath),
       inLanguage: meta.htmlLang,
       description: copy.description,
+      publisher: { '@id': absoluteSiteUrl('/about#organization') },
     },
     {
       '@context': 'https://schema.org',
@@ -250,6 +409,11 @@ export function renderLandingPage(locale: SiteLocale): string {
       url: absoluteSiteUrl(canonicalPath),
       codeRepository: SITE_FACTS.githubRepoUrl,
       license: SITE_FACTS.licenseUrl,
+      sameAs: [SITE_FACTS.githubRepoUrl, SITE_FACTS.maintainerUrl],
+      screenshot: absoluteSiteUrl(SITE_FACTS.socialImagePath),
+      featureList: SITE_FACTS.featureList,
+      applicationSubCategory: 'Literature discovery and citation analysis',
+      inLanguage: ['en', 'zh-Hans'],
       description: copy.description,
       offers: {
         '@type': 'Offer',
@@ -258,6 +422,8 @@ export function renderLandingPage(locale: SiteLocale): string {
       },
     },
   ]
+  const homeFaqJsonLd = faqJsonLd(copy.faq)
+  if (homeFaqJsonLd) jsonLd.push(homeFaqJsonLd)
 
   const examplesHtml = SITE_FACTS.examplePairs
     .map((pair) => {
@@ -292,7 +458,7 @@ export function renderLandingPage(locale: SiteLocale): string {
   const visualsHtml = copy.visuals
     .map(
       (v) => `<figure class="shot">
-      <img src="${escapeHtml(v.src)}" alt="${escapeHtml(v.alt)}" width="${v.width}" height="${v.height}" loading="lazy" decoding="async">
+      <img src="${escapeHtml(v.src)}"${v.srcSet ? ` srcset="${escapeHtml(v.srcSet)}" sizes="${escapeHtml(v.sizes ?? '100vw')}"` : ''} alt="${escapeHtml(v.alt)}" width="${v.width}" height="${v.height}" loading="lazy" decoding="async">
       <figcaption>${escapeHtml(v.caption)}</figcaption>
     </figure>`,
     )
@@ -309,17 +475,19 @@ export function renderLandingPage(locale: SiteLocale): string {
     )
     .join('\n')
 
+  const faqHtml = renderFaqSection(copy.faq, locale)
+
   const articlesHtml = SITE_ARTICLES.map((article) => {
     const item = article[locale]
     const href = articlePath(article, locale)
     return `<article class="card">
       <div>
         <span class="eyebrow" style="margin-bottom:10px">${escapeHtml(item.eyebrow)}</span>
-        <h3><a href="${escapeHtml(href)}" style="color:#fff">${escapeHtml(item.title)}</a></h3>
+        <h3><a class="card-title" href="${escapeHtml(href)}" style="color:#fff">${escapeHtml(item.title)}</a></h3>
         <p>${escapeHtml(item.description)}</p>
       </div>
       <div>
-        <a href="${escapeHtml(href)}">${isZh ? '阅读全文 →' : 'Read guide →'}</a>
+        <a class="card-link" href="${escapeHtml(href)}">${isZh ? '阅读全文 →' : 'Read guide →'}</a>
       </div>
     </article>`
   }).join('\n')
@@ -393,6 +561,8 @@ ${renderHeader(meta)}
     </div>
   </section>
 
+  ${faqHtml}
+
   <section id="guides">
     <h2>${escapeHtml(copy.resourcesHeading)}</h2>
     <p class="sub">${escapeHtml(copy.resourcesSub)}</p>
@@ -435,7 +605,8 @@ export function renderArticlePage(article: SiteArticleSpec, locale: SiteLocale):
     canonicalPath,
     enPath,
     zhPath,
-    lastmod: article.lastmod,
+    publishedAt: article.publishedAt,
+    updatedAt: article.updatedAt,
     ogType: 'article',
   }
 
@@ -445,6 +616,7 @@ export function renderArticlePage(article: SiteArticleSpec, locale: SiteLocale):
       : article.category === 'compare'
         ? isZh ? '工具对比' : 'Comparisons'
         : isZh ? '部署文档' : 'Documentation'
+  const categoryUrl = absoluteSiteUrl(categoryPath(article.category, locale))
 
   const jsonLd: Record<string, unknown>[] = [
     {
@@ -452,19 +624,22 @@ export function renderArticlePage(article: SiteArticleSpec, locale: SiteLocale):
       '@type': 'Article',
       headline: content.title,
       description: content.description,
-      dateModified: article.lastmod,
-      datePublished: article.lastmod,
+      dateModified: article.updatedAt,
+      datePublished: article.publishedAt,
       inLanguage: meta.htmlLang,
       mainEntityOfPage: absoluteSiteUrl(canonicalPath),
+      image: [absoluteSiteUrl(SITE_FACTS.socialImagePath)],
       author: {
         '@type': 'Organization',
-        name: SITE_FACTS.brandName,
-        url: SITE_FACTS.canonicalOrigin,
+        name: SITE_FACTS.maintainer,
+        url: absoluteSiteUrl(isZh ? '/zh/about' : '/about'),
+        sameAs: [SITE_FACTS.maintainerUrl, SITE_FACTS.githubRepoUrl],
       },
       publisher: {
         '@type': 'Organization',
         name: SITE_FACTS.brandName,
-        url: SITE_FACTS.canonicalOrigin,
+        url: absoluteSiteUrl('/about'),
+        sameAs: [SITE_FACTS.githubRepoUrl],
       },
     },
     {
@@ -481,7 +656,7 @@ export function renderArticlePage(article: SiteArticleSpec, locale: SiteLocale):
           '@type': 'ListItem',
           position: 2,
           name: categoryLabel,
-          item: `${absoluteSiteUrl(homePath)}#guides`,
+          item: categoryUrl,
         },
         {
           '@type': 'ListItem',
@@ -492,6 +667,10 @@ export function renderArticlePage(article: SiteArticleSpec, locale: SiteLocale):
       ],
     },
   ]
+  const howToLd = howToJsonLd(content.howTo, canonicalPath)
+  if (howToLd) jsonLd.push(howToLd)
+  const faqLd = faqJsonLd(content.faq)
+  if (faqLd) jsonLd.push(faqLd)
 
   const sectionsHtml = content.sections
     .map((sec) => {
@@ -499,11 +678,20 @@ export function renderArticlePage(article: SiteArticleSpec, locale: SiteLocale):
       const bullets = sec.bullets
         ? `<ul>${sec.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`
         : ''
-      const table = sec.table
-        ? `<div class="table-wrap"><table><thead><tr>${sec.table.headers
+      const tableSpec = sec.table
+      const table = tableSpec
+        ? `<div class="table-wrap"><table><thead><tr>${tableSpec.headers
             .map((h) => `<th>${escapeHtml(h)}</th>`)
-            .join('')}</tr></thead><tbody>${sec.table.rows
-            .map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`)
+            .join('')}</tr></thead><tbody>${tableSpec.rows
+            .map(
+              (r) =>
+                `<tr>${r
+                  .map(
+                    (c, index) =>
+                      `<td data-label="${escapeHtml(tableSpec.headers[index] ?? '')}">${escapeHtml(c)}</td>`,
+                  )
+                  .join('')}</tr>`,
+            )
             .join('')}</tbody></table></div>`
         : ''
       const code = sec.code ? `<pre><code>${escapeHtml(sec.code)}</code></pre>` : ''
@@ -517,7 +705,14 @@ export function renderArticlePage(article: SiteArticleSpec, locale: SiteLocale):
     })
     .join('\n')
 
-  const related = SITE_ARTICLES.filter((a) => a.id !== article.id).slice(0, 3)
+  const articleById = new Map(SITE_ARTICLES.map((item) => [item.id, item]))
+  const related = article.relatedIds
+    .map((id) => articleById.get(id))
+    .filter((item): item is SiteArticleSpec => Boolean(item))
+  for (const item of SITE_ARTICLES) {
+    if (related.length >= 3) break
+    if (item.id !== article.id && !related.includes(item)) related.push(item)
+  }
   const relatedHtml = related
     .map((item) => {
       const href = articlePath(item, locale)
@@ -530,6 +725,8 @@ export function renderArticlePage(article: SiteArticleSpec, locale: SiteLocale):
     })
     .join('\n')
 
+  const howToHtml = renderHowToSection(content.howTo, locale)
+  const faqHtml = renderFaqSection(content.faq, locale)
   const starHref = buildGithubOutboundUrl(`article_${article.slug}`, locale)
   const isCtaExternal = content.ctaHref.startsWith('http')
   const isSecondaryExternal = content.secondaryCtaHref?.startsWith('http') ?? false
@@ -549,8 +746,9 @@ ${renderHeader(meta)}
     <span class="eyebrow">${escapeHtml(content.eyebrow)}</span>
     <h1>${escapeHtml(content.title)}</h1>
     <div class="meta-line">
-      ${isZh ? '维护者' : 'Maintained by'}: ${escapeHtml(SITE_FACTS.maintainer)} ·
-      ${isZh ? '更新日期' : 'Updated'}: <time datetime="${escapeHtml(article.lastmod)}">${escapeHtml(article.lastmod)}</time>
+      ${isZh ? '维护者' : 'Maintained by'}: <a href="${escapeHtml(isZh ? '/zh/about' : '/about')}">${escapeHtml(SITE_FACTS.maintainer)}</a> ·
+      ${isZh ? '发布' : 'Published'}: <time datetime="${escapeHtml(article.publishedAt)}">${escapeHtml(article.publishedAt)}</time> ·
+      ${isZh ? '更新' : 'Updated'}: <time datetime="${escapeHtml(article.updatedAt)}">${escapeHtml(article.updatedAt)}</time>
     </div>
 
     <div class="answer-box">
@@ -566,7 +764,11 @@ ${renderHeader(meta)}
       }
     </div>
 
+    ${howToHtml}
+
     ${sectionsHtml}
+
+    ${faqHtml}
 
     <section class="article-sec">
       <h2>${isZh ? '参考资料与可核验来源' : 'References & Verifiable Sources'}</h2>
@@ -600,6 +802,209 @@ ${renderHeader(meta)}
       ${relatedHtml}
     </div>
   </section>
+</main>
+${renderFooter(locale)}
+${clientBeaconScript('page_view', locale)}
+</body>
+</html>`
+}
+
+export function renderCategoryPage(category: ArticleCategory, locale: SiteLocale): string {
+  const isZh = locale === 'zh'
+  const copy = CATEGORY_COPY[category][locale]
+  const enPath = categoryPath(category, 'en')
+  const zhPath = categoryPath(category, 'zh')
+  const canonicalPath = isZh ? zhPath : enPath
+  const homePath = isZh ? '/zh/' : '/'
+  const meta: ResolvedPageMeta = {
+    locale,
+    htmlLang: isZh ? 'zh-CN' : 'en',
+    hreflangSelf: isZh ? 'zh-Hans' : 'en',
+    title: copy.metaTitle,
+    description: copy.description,
+    canonicalPath,
+    enPath,
+    zhPath,
+    updatedAt: SITE_FACTS.lastUpdated,
+    ogType: 'website',
+  }
+
+  const articles = SITE_ARTICLES.filter((article) => article.category === category)
+  const cardsHtml = articles
+    .map((article) => {
+      const item = article[locale]
+      const href = articlePath(article, locale)
+      return `<article class="card">
+        <div>
+          <span class="eyebrow" style="margin-bottom:10px">${escapeHtml(item.eyebrow)}</span>
+          <h3><a class="card-title" href="${escapeHtml(href)}" style="color:#fff">${escapeHtml(item.title)}</a></h3>
+          <p>${escapeHtml(item.description)}</p>
+        </div>
+        <div><a class="card-link" href="${escapeHtml(href)}">${isZh ? '阅读全文 →' : 'Read more →'}</a></div>
+      </article>`
+    })
+    .join('\n')
+  const sectionsHtml = copy.sections
+    .map(
+      (section) => `<section class="article-sec">
+        <h2>${escapeHtml(section.heading)}</h2>
+        ${section.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n')}
+      </section>`,
+    )
+    .join('\n')
+
+  const jsonLd: Record<string, unknown>[] = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: copy.h1,
+      description: copy.description,
+      url: absoluteSiteUrl(canonicalPath),
+      inLanguage: meta.htmlLang,
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListElement: articles.map((article, index) => ({
+          '@type': 'ListItem',
+          position: index + 1,
+          url: absoluteSiteUrl(articlePath(article, locale)),
+          name: article[locale].title,
+        })),
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: isZh ? 'CiteDuo 首页' : 'CiteDuo Home',
+          item: absoluteSiteUrl(homePath),
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: copy.h1,
+          item: absoluteSiteUrl(canonicalPath),
+        },
+      ],
+    },
+  ]
+
+  return `<!doctype html>
+<html lang="${meta.htmlLang}">
+${renderHead(meta, jsonLd)}
+<body>
+${renderHeader(meta)}
+<main class="wrap">
+  <section class="article-shell">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="${escapeHtml(homePath)}">${isZh ? '首页' : 'Home'}</a> / <span>${escapeHtml(copy.h1)}</span>
+    </nav>
+    <span class="eyebrow">${escapeHtml(copy.eyebrow)}</span>
+    <h1>${escapeHtml(copy.h1)}</h1>
+    <p class="lead">${escapeHtml(copy.lead)}</p>
+    <div class="cta-row">
+      <a class="btn primary" href="${escapeHtml(buildAppHomeUrl(`category_${category}_${locale}`))}">${isZh ? '打开论文工作台' : 'Open paper workspace'}</a>
+      <a class="btn" href="${escapeHtml(buildGithubOutboundUrl(`category_${category}`, locale))}" target="_blank" rel="noopener noreferrer" data-track="github_outbound" data-placement="category_${category}">GitHub (${SITE_FACTS.licenseSpdx})</a>
+    </div>
+    ${sectionsHtml}
+  </section>
+  <section>
+    <div class="category-grid">
+      ${cardsHtml}
+    </div>
+  </section>
+</main>
+${renderFooter(locale)}
+${clientBeaconScript('page_view', locale)}
+</body>
+</html>`
+}
+
+export function renderAboutPage(locale: SiteLocale): string {
+  const isZh = locale === 'zh'
+  const copy = ABOUT_COPY[locale]
+  const enPath = '/about'
+  const zhPath = '/zh/about'
+  const canonicalPath = isZh ? zhPath : enPath
+  const homePath = isZh ? '/zh/' : '/'
+  const meta: ResolvedPageMeta = {
+    locale,
+    htmlLang: isZh ? 'zh-CN' : 'en',
+    hreflangSelf: isZh ? 'zh-Hans' : 'en',
+    title: copy.metaTitle,
+    description: copy.description,
+    canonicalPath,
+    enPath,
+    zhPath,
+    updatedAt: SITE_FACTS.lastUpdated,
+    ogType: 'website',
+  }
+
+  const sectionsHtml = copy.sections
+    .map((section) => {
+      const bullets = section.bullets
+        ? `<ul>${section.bullets.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+        : ''
+      return `<section class="article-sec">
+        <h2>${escapeHtml(section.heading)}</h2>
+        ${section.paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join('\n')}
+        ${bullets}
+      </section>`
+    })
+    .join('\n')
+
+  const jsonLd: Record<string, unknown>[] = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'AboutPage',
+      name: copy.h1,
+      description: copy.description,
+      url: absoluteSiteUrl(canonicalPath),
+      inLanguage: meta.htmlLang,
+      mainEntity: { '@id': absoluteSiteUrl('/about#organization') },
+    },
+    organizationJsonLd(copy.description),
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: isZh ? 'CiteDuo 首页' : 'CiteDuo Home',
+          item: absoluteSiteUrl(homePath),
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: copy.h1,
+          item: absoluteSiteUrl(canonicalPath),
+        },
+      ],
+    },
+  ]
+
+  return `<!doctype html>
+<html lang="${meta.htmlLang}">
+${renderHead(meta, jsonLd)}
+<body>
+${renderHeader(meta)}
+<main class="wrap">
+  <article class="article-shell">
+    <nav class="breadcrumbs" aria-label="Breadcrumb">
+      <a href="${escapeHtml(homePath)}">${isZh ? '首页' : 'Home'}</a> / <span>${isZh ? '关于' : 'About'}</span>
+    </nav>
+    <span class="eyebrow">${escapeHtml(copy.eyebrow)}</span>
+    <h1>${escapeHtml(copy.h1)}</h1>
+    <p class="lead">${escapeHtml(copy.lead)}</p>
+    <div class="cta-row">
+      <a class="btn primary" href="${escapeHtml(buildAppHomeUrl(`about_workspace_${locale}`))}">${escapeHtml(copy.workspaceCta)}</a>
+      <a class="btn" href="${escapeHtml(buildGithubOutboundUrl('about', locale))}" target="_blank" rel="noopener noreferrer" data-track="github_outbound" data-placement="about">${escapeHtml(copy.githubCta)}</a>
+    </div>
+    ${sectionsHtml}
+  </article>
 </main>
 ${renderFooter(locale)}
 ${clientBeaconScript('page_view', locale)}
