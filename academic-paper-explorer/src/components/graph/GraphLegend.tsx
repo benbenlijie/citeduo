@@ -87,7 +87,7 @@ const GraphLegend: React.FC<Props> = ({
   }
 
   return (
-    <div className="absolute bottom-4 right-4 z-10 max-w-[264px] rounded-lg bg-gray-800/90 p-3 text-xs text-white">
+    <div className="absolute bottom-4 right-4 z-10 hidden max-w-[264px] rounded-lg bg-gray-800/90 p-3 text-xs text-white xl:block">
       {colorMode === 'year' ? (
         <div>
           <div className="mb-1 text-gray-300">年份</div>

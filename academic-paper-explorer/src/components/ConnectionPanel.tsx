@@ -79,7 +79,7 @@ const EndpointSlot: React.FC<{
   const label = paperLabel(paper, titleOf)
 
   return (
-    <div className="relative flex items-center gap-2 rounded border border-gray-700 bg-gray-900/60 px-2 py-1.5">
+    <div className="relative flex min-h-11 items-center gap-2 rounded border border-gray-700 bg-gray-900/60 px-2 py-2">
       <span className="shrink-0 rounded bg-gray-700 px-1.5 py-0.5 text-[10px] text-gray-300">{role}</span>
       <button
         type="button"
@@ -87,7 +87,7 @@ const EndpointSlot: React.FC<{
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         title={label}
-        className="min-w-0 flex-1 truncate text-left text-gray-200 hover:text-white"
+        className="min-h-11 min-w-0 flex-1 truncate text-left text-gray-200 hover:text-white"
       >
         {label}
       </button>
@@ -96,7 +96,7 @@ const EndpointSlot: React.FC<{
         aria-label={`展开${role}候选`}
         tabIndex={-1}
         onClick={() => setOpen((v) => !v)}
-        className="shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-700 hover:text-white"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-gray-700 hover:text-white"
       >
         <ChevronDown className="h-3.5 w-3.5" />
       </button>
@@ -105,7 +105,7 @@ const EndpointSlot: React.FC<{
           type="button"
           aria-label={`清除${role}`}
           onClick={() => onPick(null)}
-          className="shrink-0 rounded p-0.5 text-gray-500 hover:bg-gray-700 hover:text-white"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded text-gray-500 hover:bg-gray-700 hover:text-white"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -126,7 +126,7 @@ const EndpointSlot: React.FC<{
                   onPick(option.paper)
                   setOpen(false)
                 }}
-                className="block w-full px-2 py-1.5 text-left hover:bg-gray-700"
+                className="block min-h-11 w-full px-2 py-1.5 text-left hover:bg-gray-700"
               >
                 <span className="text-[10px] text-gray-400">{option.label}</span>
                 <span className="block truncate text-gray-100">{paperLabel(option.paper, titleOf)}</span>
@@ -140,7 +140,7 @@ const EndpointSlot: React.FC<{
                 onPick(null)
                 setOpen(false)
               }}
-              className="block w-full border-t border-gray-700 px-2 py-1.5 text-left text-gray-400 hover:bg-gray-700"
+              className="block min-h-11 w-full border-t border-gray-700 px-2 py-1.5 text-left text-gray-400 hover:bg-gray-700"
             >
               清除
             </button>
@@ -339,7 +339,7 @@ const ConnectionPanel: React.FC = () => {
   }
 
   return (
-    <div className="absolute right-4 top-16 z-30 flex max-h-[70%] w-[22rem] flex-col overflow-hidden rounded-lg border border-gray-700 bg-gray-800/95 text-xs text-white shadow-xl">
+    <div className="absolute left-2 right-2 top-16 z-30 flex max-h-[75%] w-auto flex-col overflow-hidden rounded-lg border border-gray-700 bg-gray-800/95 text-xs text-white shadow-xl sm:left-auto sm:right-4 sm:max-h-[70%] sm:w-[22rem]">
       <div className="flex items-center justify-between border-b border-gray-700 px-3 py-2">
         <div className="flex items-center gap-2">
           <Network className="h-4 w-4 text-emerald-400" />
@@ -351,7 +351,7 @@ const ConnectionPanel: React.FC = () => {
             aria-label="交换起点终点"
             onClick={swap}
             disabled={!connectionFrom && !connectionTo}
-            className="rounded p-1 text-gray-400 hover:bg-gray-600 hover:text-white disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded text-gray-400 hover:bg-gray-600 hover:text-white disabled:opacity-40"
           >
             <ArrowRightLeft className="h-3.5 w-3.5" />
           </button>
@@ -361,7 +361,7 @@ const ConnectionPanel: React.FC = () => {
             title="清除这两篇论文与检索结果"
             onClick={clearConnectionPair}
             disabled={!fromId && !toId && !connection}
-            className="rounded p-1 text-gray-400 hover:bg-gray-600 hover:text-white disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded text-gray-400 hover:bg-gray-600 hover:text-white disabled:opacity-40"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -369,7 +369,7 @@ const ConnectionPanel: React.FC = () => {
             type="button"
             aria-label="关闭关联路径面板"
             onClick={() => setConnectionOpen(false)}
-            className="rounded p-1 text-gray-400 hover:bg-gray-600 hover:text-white"
+            className="flex h-11 w-11 items-center justify-center rounded text-gray-400 hover:bg-gray-600 hover:text-white"
           >
             <X className="h-4 w-4" />
           </button>
@@ -391,14 +391,14 @@ const ConnectionPanel: React.FC = () => {
           titleOf={titleOf}
           onPick={setConnectionTo}
         />
-        <p className="text-[11px] leading-relaxed text-gray-500">
+        <p className="hidden text-[11px] leading-relaxed text-gray-500 sm:block">
           点槽位可从「当前论文 / 对比论文 / 图上选中的节点」里挑，也可以在图上右键任意节点直接设为起点或终点。
         </p>
         <button
           type="button"
           onClick={() => fromId && toId && requestConnection(fromId, toId)}
           disabled={!runnable || loading}
-          className="flex w-full items-center justify-center gap-1.5 rounded bg-emerald-600 px-3 py-1.5 font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500"
+          className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded bg-emerald-600 px-3 py-2 font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-500"
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
           {loading ? '正在检索关联…' : '查找关联路径'}
@@ -409,17 +409,21 @@ const ConnectionPanel: React.FC = () => {
         {serverLocalOnly === true ? (
           <p className="text-[11px] text-gray-500">本实例已关闭联网扩展（CONNECT_LOCAL_ONLY=1），只在本地缓存中检索。</p>
         ) : (
-          <label className="flex items-start gap-2 text-[11px] leading-relaxed text-gray-400">
+          <label
+            className="flex min-h-11 items-center gap-2 text-xs leading-relaxed text-gray-400"
+            title="本地找不到链路时，实时查询 Semantic Scholar。关闭后只用本地缓存，更快，但可能漏掉新论文。"
+          >
             <input
               type="checkbox"
-              className="mt-0.5 accent-emerald-500"
+              aria-label="允许联网扩展：本地找不到链路时实时查询 Semantic Scholar"
+              className="mt-0.5 h-5 w-5 shrink-0 accent-emerald-500"
               checked={live ?? false}
               disabled={serverLocalOnly === null}
               onChange={(e) => setAllowUpstream(e.target.checked)}
             />
             <span>
               允许联网扩展
-              <span className="text-gray-500">
+              <span className="hidden text-gray-500 sm:inline">
                 ：本地找不到链路时，实时查询 Semantic Scholar。关闭后只用本地缓存，更快，但可能漏掉新论文。
               </span>
             </span>

@@ -63,7 +63,7 @@ const ConnectionCapsule: React.FC = () => {
       aria-pressed={connectionOpen}
       onClick={handleClick}
       title={hasPair ? '查看这两篇论文的关联路径' : '选择两篇论文分析关联'}
-      className={`flex items-center gap-2 rounded border px-2.5 py-1.5 text-sm transition-colors ${
+      className={`flex min-h-11 items-center gap-2 rounded border px-2.5 py-1.5 text-sm transition-colors ${
         connectionOpen
           ? 'border-emerald-500 bg-emerald-600/20 text-emerald-300'
           : 'border-gray-600 text-gray-300 hover:border-emerald-500 hover:text-emerald-300'
@@ -71,17 +71,23 @@ const ConnectionCapsule: React.FC = () => {
     >
       <Link2 className="h-3.5 w-3.5 shrink-0" />
       {hasPair ? (
-        <span className="flex items-center gap-1.5">
-          <span className="max-w-[9rem] truncate" title={connectionFrom?.title || fromId || undefined}>
-            {name(connectionFrom)}
+        <>
+          <span className="hidden items-center gap-1.5 sm:flex">
+            <span className="max-w-[9rem] truncate" title={connectionFrom?.title || fromId || undefined}>
+              {name(connectionFrom)}
+            </span>
+            <ArrowLeftRight className="h-3 w-3 shrink-0 text-gray-500" />
+            <span className="max-w-[9rem] truncate" title={connectionTo?.title || toId || undefined}>
+              {name(connectionTo)}
+            </span>
           </span>
-          <ArrowLeftRight className="h-3 w-3 shrink-0 text-gray-500" />
-          <span className="max-w-[9rem] truncate" title={connectionTo?.title || toId || undefined}>
-            {name(connectionTo)}
-          </span>
-        </span>
+          <span className="sm:hidden">关联</span>
+        </>
       ) : (
-        <span>关联路径</span>
+        <>
+          <span className="hidden sm:inline">关联路径</span>
+          <span className="sm:hidden">关联</span>
+        </>
       )}
       {state}
     </button>

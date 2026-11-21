@@ -60,7 +60,7 @@ const GraphMinimap: React.FC<Props> = ({ nodes, selectedId, onSelect }) => {
       width={WIDTH}
       height={HEIGHT}
       onClick={handleClick}
-      className="absolute bottom-4 left-4 z-10 cursor-pointer rounded-lg border border-gray-600 opacity-90"
+      className="absolute bottom-4 left-4 z-10 hidden cursor-pointer rounded-lg border border-gray-600 opacity-90 xl:block"
     />
   )
 }

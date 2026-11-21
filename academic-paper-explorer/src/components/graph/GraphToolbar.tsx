@@ -38,7 +38,7 @@ const GraphToolbar: React.FC<GraphToolbarProps> = ({
   const { graphView, setGraphView, colorMode, setColorMode, sizeMode, setSizeMode, graphQuery, setGraphQuery } =
     useUiStore()
   const [exportOpen, setExportOpen] = useState(false)
-  const anchor = placement === 'bottom-left' ? 'bottom-4' : 'top-4'
+  const anchor = placement === 'bottom-left' ? 'bottom-4' : 'top-3 lg:top-4'
 
   const runExport = (handler?: () => void) => {
     handler?.()
@@ -46,13 +46,15 @@ const GraphToolbar: React.FC<GraphToolbarProps> = ({
   }
 
   return (
-    <div className={`absolute left-4 ${anchor} z-10 flex flex-col gap-2 rounded-lg bg-gray-800/90 p-3 text-xs text-white`}>
+    <div className={`absolute left-3 ${anchor} z-10 flex flex-col gap-2 rounded-lg bg-gray-800/90 p-2 text-xs text-white lg:left-4 lg:p-3`}>
       <div className="flex overflow-hidden rounded border border-gray-600">
         {(['2d', '3d'] as const).map((v) => (
           <button
             key={v}
             onClick={() => setGraphView(v)}
-            className={`px-3 py-1 ${graphView === v ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+            className={`min-h-11 min-w-11 px-3 py-2 ${
+              graphView === v ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
+            }`}
           >
             {v.toUpperCase()}
           </button>
@@ -64,7 +66,7 @@ const GraphToolbar: React.FC<GraphToolbarProps> = ({
           type="button"
           aria-pressed={nodeListOpen}
           onClick={onToggleNodeList}
-          className={`flex items-center gap-1 rounded px-2 py-1 ${
+          className={`flex min-h-11 items-center justify-center gap-1 rounded px-2 py-2 ${
             nodeListOpen ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'
           }`}
         >
@@ -73,7 +75,7 @@ const GraphToolbar: React.FC<GraphToolbarProps> = ({
         </button>
       )}
 
-      <label className="flex items-center gap-2">
+      <label className="hidden items-center gap-2 lg:flex">
         <span className="text-gray-400">配色</span>
         <select
           value={colorMode}
@@ -88,7 +90,7 @@ const GraphToolbar: React.FC<GraphToolbarProps> = ({
         </select>
       </label>
 
-      <label className="flex items-center gap-2">
+      <label className="hidden items-center gap-2 lg:flex">
         <span className="text-gray-400">大小</span>
         <select
           value={sizeMode}
@@ -103,7 +105,7 @@ const GraphToolbar: React.FC<GraphToolbarProps> = ({
         </select>
       </label>
 
-      <div className="flex items-center gap-1 rounded bg-gray-700 px-2 py-1">
+      <div className="hidden items-center gap-1 rounded bg-gray-700 px-2 py-1 lg:flex">
         <Search className="h-3 w-3 text-gray-400" />
         <input
           value={graphQuery}
@@ -117,7 +119,7 @@ const GraphToolbar: React.FC<GraphToolbarProps> = ({
         <button
           type="button"
           onClick={() => setExportOpen((o) => !o)}
-          className="flex w-full items-center gap-1 rounded bg-gray-700 px-2 py-1 hover:bg-gray-600"
+          className="flex min-h-11 w-full items-center justify-center gap-1 rounded bg-gray-700 px-2 py-2 hover:bg-gray-600"
         >
           <Download className="h-3 w-3 text-gray-400" />
           导出
@@ -131,35 +133,35 @@ const GraphToolbar: React.FC<GraphToolbarProps> = ({
             <button
               type="button"
               onClick={() => runExport(onExportPng)}
-              className="px-3 py-1.5 text-left hover:bg-gray-700"
+              className="min-h-11 px-3 py-2 text-left hover:bg-gray-700"
             >
               PNG（当前视图）
             </button>
             <button
               type="button"
               onClick={() => runExport(onExportJsonVisible)}
-              className="px-3 py-1.5 text-left hover:bg-gray-700"
+              className="min-h-11 px-3 py-2 text-left hover:bg-gray-700"
             >
               JSON（当前视图）
             </button>
             <button
               type="button"
               onClick={() => runExport(onExportJsonFull)}
-              className="px-3 py-1.5 text-left hover:bg-gray-700"
+              className="min-h-11 px-3 py-2 text-left hover:bg-gray-700"
             >
               JSON（完整网络）
             </button>
             <button
               type="button"
               onClick={() => runExport(onExportBibtex)}
-              className="px-3 py-1.5 text-left hover:bg-gray-700"
+              className="min-h-11 px-3 py-2 text-left hover:bg-gray-700"
             >
               BibTeX（当前视图）
             </button>
             <button
               type="button"
               onClick={() => runExport(onExportCsv)}
-              className="px-3 py-1.5 text-left hover:bg-gray-700"
+              className="min-h-11 px-3 py-2 text-left hover:bg-gray-700"
             >
               CSV（当前视图）
             </button>

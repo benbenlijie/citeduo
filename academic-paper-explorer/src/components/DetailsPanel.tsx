@@ -287,7 +287,7 @@ const DetailsPanel: React.FC = () => {
               <button
                 type="button"
                 onClick={() => toggleFavorite(paperId)}
-                className={`flex items-center gap-1 rounded px-3 py-1 text-sm ${
+                className={`flex min-h-11 items-center gap-1 rounded px-3 py-2 text-sm ${
                   library.favorites.includes(paperId)
                     ? 'bg-yellow-600/80 text-white'
                     : 'bg-gray-700 text-gray-200 hover:bg-gray-600'
@@ -324,7 +324,7 @@ const DetailsPanel: React.FC = () => {
                   addToCollection(target.id, paperId)
                   flashCollectionNotice(`已加入「${target.name}」`)
                 }}
-                className="rounded bg-gray-700 px-2 py-1 text-sm text-gray-200"
+                className="min-h-11 min-w-0 rounded bg-gray-700 px-2 py-2 text-sm text-gray-200"
               >
                 <option value="">加入集合…</option>
                 {library.collections.map((c) => (
@@ -348,7 +348,7 @@ const DetailsPanel: React.FC = () => {
                       removeFromCollection(c.id, paperId)
                       flashCollectionNotice(`已移出「${c.name}」`)
                     }}
-                    className="flex items-center gap-1 rounded bg-gray-700 px-2 py-0.5 text-xs text-gray-200 hover:bg-red-900/60"
+                    className="flex min-h-11 items-center gap-1 rounded bg-gray-700 px-3 py-2 text-xs text-gray-200 hover:bg-red-900/60"
                   >
                     {c.name}
                     <X className="h-3 w-3" />
@@ -444,7 +444,7 @@ const DetailsPanel: React.FC = () => {
                   )
                 }
               }}
-              className="flex items-center space-x-2 text-purple-400 hover:text-purple-300 text-sm"
+              className="flex min-h-11 items-center gap-2 text-sm text-purple-400 hover:text-purple-300"
             >
               <BookOpen className="w-4 h-4" />
               <span>在应用内阅读（arXiv HTML）</span>
@@ -464,7 +464,7 @@ const DetailsPanel: React.FC = () => {
                   )
                 }
               }}
-              className="flex items-center space-x-2 text-blue-400 hover:text-blue-300 text-sm"
+              className="flex min-h-11 items-center gap-2 text-sm text-blue-400 hover:text-blue-300"
             >
               <Globe className="w-4 h-4" />
               <span>查看原文</span>
@@ -477,7 +477,7 @@ const DetailsPanel: React.FC = () => {
               href={paper.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center space-x-2 text-green-400 hover:text-green-300 text-sm"
+              className="flex min-h-11 items-center gap-2 text-sm text-green-400 hover:text-green-300"
             >
               <Download className="w-4 h-4" />
               <span>下载PDF</span>

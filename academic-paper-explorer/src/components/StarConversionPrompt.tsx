@@ -27,7 +27,7 @@ export const HeaderStarLink: React.FC = () => {
       target="_blank"
       rel="noopener noreferrer"
       onClick={() => recordStarClick('app_header')}
-      className="inline-flex items-center gap-1.5 rounded border border-gray-600 bg-gray-800 px-2.5 py-1.5 text-xs font-medium text-gray-200 transition-colors hover:border-amber-400/70 hover:text-amber-200"
+      className="inline-flex min-h-11 items-center gap-1.5 rounded border border-gray-600 bg-gray-800 px-2.5 py-1.5 text-xs font-medium text-gray-200 transition-colors hover:border-amber-400/70 hover:text-amber-200"
       title="在 GitHub 查看源码并点亮 Star（MIT 开源）"
     >
       <Star className="h-3.5 w-3.5 text-amber-400" />

@@ -56,22 +56,23 @@ const SearchBar: React.FC = () => {
   }
 
   return (
-    <form onSubmit={handleSearch} className="flex items-center space-x-4">
-      {/* 搜索类型选择 */}
-      <select
-        value={searchType}
-        onChange={(e) => setSearchType(e.target.value as any)}
-        className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-      >
-        {searchTypeOptions.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+    <form onSubmit={handleSearch} className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        {/* 搜索类型选择 */}
+        <select
+          value={searchType}
+          onChange={(e) => setSearchType(e.target.value as any)}
+          className="min-h-11 w-full rounded-lg border border-gray-600 bg-gray-700 px-3 py-2 text-white focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 sm:w-auto"
+        >
+          {searchTypeOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
 
-      {/* 搜索输入框 */}
-      <div className="flex-1 relative">
+        {/* 搜索输入框 */}
+        <div className="relative min-w-0 flex-1">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           {isSearching ? (
             <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
@@ -86,7 +87,7 @@ const SearchBar: React.FC = () => {
           onFocus={() => setShowHistory(true)}
           onBlur={() => window.setTimeout(() => setShowHistory(false), 120)}
           placeholder={getPlaceholder()}
-          className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="min-h-11 w-full rounded-lg border border-gray-600 bg-gray-700 py-2 pl-10 pr-4 text-white placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={isSearching}
         />
 
@@ -176,19 +177,20 @@ const SearchBar: React.FC = () => {
             </ul>
           </div>
         )}
+        </div>
+
+        {/* 搜索按钮 */}
+        <button
+          type="submit"
+          disabled={isSearching || !searchQuery.trim()}
+          className="min-h-11 w-full whitespace-nowrap rounded-lg bg-blue-600 px-6 py-2 font-medium text-white transition-colors duration-200 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:cursor-not-allowed disabled:bg-gray-600 sm:w-auto"
+        >
+          {isSearching ? '搜索中...' : '搜索'}
+        </button>
       </div>
 
-      {/* 搜索按钮 */}
-      <button
-        type="submit"
-        disabled={isSearching || !searchQuery.trim()}
-        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800"
-      >
-        {isSearching ? '搜索中...' : '搜索'}
-      </button>
-
       {/* 快捷示例 */}
-      <div className="flex items-center space-x-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-sm text-gray-400">示例:</span>
         <button
           type="button"
@@ -196,7 +198,7 @@ const SearchBar: React.FC = () => {
             setSearchType('keyword')
             setSearchQuery('attention mechanism')
           }}
-          className="text-sm text-blue-400 hover:text-blue-300 underline"
+          className="inline-flex min-h-11 items-center text-sm text-blue-400 underline hover:text-blue-300"
         >
           attention mechanism
         </button>
@@ -207,7 +209,7 @@ const SearchBar: React.FC = () => {
             setSearchType('doi')
             setSearchQuery('10.48550/arXiv.1706.03762')
           }}
-          className="text-sm text-blue-400 hover:text-blue-300 underline"
+          className="inline-flex min-h-11 items-center text-sm text-blue-400 underline hover:text-blue-300"
         >
           Transformer论文
         </button>

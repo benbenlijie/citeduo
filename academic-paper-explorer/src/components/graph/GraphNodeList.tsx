@@ -30,7 +30,7 @@ const GraphNodeList: React.FC<Props> = ({ nodes, selectedId, onSelect, onReroot,
   }, [nodes, sort])
 
   return (
-    <div className="absolute right-0 top-0 z-30 flex h-full w-80 flex-col border-l border-gray-700 bg-gray-800/95 text-xs text-white">
+    <div className="absolute right-0 top-0 z-30 flex h-full w-full flex-col border-l border-gray-700 bg-gray-800/95 text-xs text-white lg:w-80">
       <div className="flex items-center justify-between border-b border-gray-700 px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">图节点</span>
@@ -40,7 +40,7 @@ const GraphNodeList: React.FC<Props> = ({ nodes, selectedId, onSelect, onReroot,
           type="button"
           aria-label="关闭节点列表"
           onClick={onClose}
-          className="rounded p-1 text-gray-400 hover:bg-gray-600 hover:text-white"
+          className="flex h-11 w-11 items-center justify-center rounded text-gray-400 hover:bg-gray-600 hover:text-white"
         >
           <X className="h-4 w-4" />
         </button>
@@ -52,7 +52,7 @@ const GraphNodeList: React.FC<Props> = ({ nodes, selectedId, onSelect, onReroot,
           aria-label="节点排序"
           value={sort}
           onChange={(e) => setSort(e.target.value as SortKey)}
-          className="rounded bg-gray-700 px-1 py-0.5 text-gray-100"
+          className="min-h-11 rounded bg-gray-700 px-2 py-1 text-gray-100"
         >
           {SORTS.map((s) => (
             <option key={s.value} value={s.value}>
@@ -73,7 +73,7 @@ const GraphNodeList: React.FC<Props> = ({ nodes, selectedId, onSelect, onReroot,
               onClick={() => onSelect(node)}
               onDoubleClick={() => onReroot(node)}
               title="单击选中并定位，双击以此为根重建网络"
-              className={`block w-full border-b border-gray-700/60 px-3 py-2 text-left transition-colors hover:bg-gray-700 ${
+              className={`block min-h-11 w-full border-b border-gray-700/60 px-3 py-2 text-left transition-colors hover:bg-gray-700 ${
                 node.id === selectedId ? 'bg-gray-700/70' : ''
               }`}
             >

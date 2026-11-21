@@ -1045,7 +1045,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({ paper, slot = 'primary' }) 
           type="button"
           onClick={() => setNodeListOpen(true)}
           title="点击查看节点列表"
-          className={`absolute z-10 rounded-lg bg-gray-800/90 px-3 py-2 text-xs text-white transition-colors hover:bg-gray-700 ${
+          className={`absolute z-10 flex min-h-11 items-center rounded-lg bg-gray-800/90 px-3 py-2 text-xs text-white transition-colors hover:bg-gray-700 ${
             isCompare ? 'bottom-4 right-4' : 'right-4 top-4'
           }`}
         >
