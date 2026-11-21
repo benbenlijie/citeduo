@@ -260,6 +260,98 @@ const FAQ = {
       },
     ],
   },
+  citationChaining: {
+    en: [
+      {
+        question: 'What is the difference between backward and forward citation chaining?',
+        answer:
+          'Backward chaining follows the references a paper cites, moving toward its foundations. Forward chaining follows later papers that cite it, moving toward improvements, rebuttals, and current baselines.',
+      },
+      {
+        question: 'Do I need to search in both directions?',
+        answer:
+          'Yes for a defensible review. Backward chaining alone systematically misses newer work; forward chaining alone systematically misses the foundations the paper builds on.',
+      },
+      {
+        question: 'When should I stop chaining?',
+        answer:
+          'Stop when a new batch of papers adds no new concepts, methods, or venues, or when you hit a pre-declared time window or relevance rule. Write that rule down before you start so the stopping point is auditable.',
+      },
+      {
+        question: 'Does citation chaining replace keyword search?',
+        answer:
+          'No. Chaining is precise but only reaches what is connected to your seeds. Keyword search reaches disconnected but relevant work, so most reviews combine a small keyword pass with bidirectional chaining.',
+      },
+    ],
+    zh: [
+      {
+        question: '���后追溯和向前追踪有什么区别？',
+        answer:
+          '向后追溯沿着论文自己的参考文献走，指向它的奠基工作；向前追踪沿着引用它的后续论文走，指向改进、反驳和当前基线。',
+      },
+      {
+        question: '两个方向都要做吗？',
+        answer:
+          '如果要给出可辩护的综述，两个方向都需要。只做向后会系统性漏掉新工作；只做向前会系统性漏掉它依赖的基础文献。',
+      },
+      {
+        question: '什么时候可以停止扩展？',
+        answer:
+          '当新增一批文献不再带来新的概念、方法或发表渠道，或触及你事先声明的年份窗口与相关性规则时停止。规则要在开始前写下来，停止点才可复核。',
+      },
+      {
+        question: '引文链可以替代关键词检索吗？',
+        answer:
+          '不能。引文链精确，但只能到达与种子相连的文献；关键词检索能触达相关却不连通的工作。实践中通常先做小规模关键词检索，再做双向引文链。',
+      },
+    ],
+  },
+  litmaps: {
+    en: [
+      {
+        question: 'Is CiteDuo a drop-in replacement for Litmaps?',
+        answer:
+          'No. Litmaps is a cloud literature-mapping product with monitoring, Zotero sync, and shared maps. CiteDuo is a self-hostable tool focused on explicit two-paper path analysis; you can run both.',
+      },
+      {
+        question: 'Can Litmaps show a path between two specific papers?',
+        answer:
+          'Litmaps is built around seed maps and expanding from one or more input papers. CiteDuo adds an explicit A-to-B search that returns ranked, evidence-typed paths with alternatives.',
+      },
+      {
+        question: 'Which one keeps my data local?',
+        answer:
+          'CiteDuo can run entirely on your machine as one Bun process with one SQLite file. Litmaps is a hosted service, so your library lives in its cloud account.',
+      },
+      {
+        question: 'Is CiteDuo free?',
+        answer:
+          'CiteDuo is MIT-licensed and free to self-host. Litmaps offers a free tier plus paid Pro features; check its pricing page for the current split.',
+      },
+    ],
+    zh: [
+      {
+        question: 'CiteDuo 能直接替代 Litmaps 吗？',
+        answer:
+          '不能。Litmaps 是云端文献地图产品，提供监控、Zotero 同步和共享地图；CiteDuo 是可自托管、专注双论文显式路径分析的工具。两者可以同时使用。',
+      },
+      {
+        question: 'Litmaps 能显示两篇指定论文之间的路径吗？',
+        answer:
+          'Litmaps 以种子地图和从一篇或多篇输入论文向外扩展为核心。CiteDuo 额外提供 A→B 显式检索，返回带证据类型和置信度的排序路径与备选路线。',
+      },
+      {
+        question: '哪一个能保证数据留在本地？',
+        answer:
+          'CiteDuo 可以完全跑在自己机器上，由单个 Bun 进程和单个 SQLite 文件组成。Litmaps 是托管服务，文献库保存在其云端账号中。',
+      },
+      {
+        question: 'CiteDuo 收费吗？',
+        answer:
+          'CiteDuo 采用 MIT 许可证，自托管免费。Litmaps 提供免费版与付费 Pro 功能，具体分层以其官网当前定价为准。',
+      },
+    ],
+  },
 }
 
 const HOW_TO_CHECK = {
@@ -1281,6 +1373,338 @@ OpenVLA → RT-2
         { label: 'OpenVLA（arXiv 2406.09246）', url: 'https://arxiv.org/abs/2406.09246' },
         { label: 'RT-2：Vision-Language-Action Models（arXiv 2307.15818）', url: 'https://arxiv.org/abs/2307.15818' },
         { label: 'CiteDuo 路径分类与评分实现（server/pathfind.ts）', url: 'https://github.com/benbenlijie/citeduo/blob/main/server/pathfind.ts' },
+      ],
+    },
+  },
+  {
+    id: 'citation-chaining-forward-and-backward',
+    category: 'guides',
+    slug: 'citation-chaining-forward-and-backward',
+    publishedAt: '2026-11-21',
+    updatedAt: SITE_FACTS.lastUpdated,
+    relatedIds: [
+      'how-to-use-citation-networks-in-a-literature-review',
+      'how-to-check-if-two-papers-are-related',
+      'citation-path-vs-bibliographic-coupling-vs-co-citation',
+    ],
+    en: {
+      title: 'Citation Chaining: Backward and Forward Search, Explained',
+      metaTitle: 'Forward vs Backward Citation Chaining | CiteDuo',
+      description:
+        'Learn backward and forward citation chaining: how each direction works, when to use it, how to stop, and why a complete review needs both.',
+      eyebrow: 'Guide · Snowballing & Citation Chaining',
+      summaryAnswer:
+        'Citation chaining expands a literature search along the citation graph in two directions. Backward chaining follows a paper’s references toward its foundations; forward chaining follows later papers that cite it toward current work. A defensible review runs both, because each direction systematically misses what the other finds.',
+      ctaLabel: 'Open a two-paper path example',
+      ctaHref: buildAppPairUrl(pairOpenvlaRt2),
+      secondaryCtaLabel: 'Open paper workspace',
+      secondaryCtaHref: buildAppHomeUrl('guide_chaining_en'),
+      faq: FAQ.citationChaining.en,
+      howTo: {
+        name: 'How to run bidirectional citation chaining',
+        steps: [
+          {
+            name: 'Pick 1–3 seed papers and freeze the baseline',
+            text: 'Choose papers that are central to the question rather than merely highly cited. Record the date you started; forward chaining results change as new papers are published.',
+          },
+          {
+            name: 'Chain backward through references',
+            text: 'Open the reference list and keep the works the seed actually builds on. Prefer specific domain ancestors over ubiquitous classics that appear in every paper.',
+          },
+          {
+            name: 'Chain forward through citing papers',
+            text: 'List later papers that cite the seed. This is where improvements, rebuttals, replications, and current baselines appear.',
+          },
+          {
+            name: 'Repeat one level on the best new hits',
+            text: 'Apply the same two directions to the strongest newly found papers. Two to three rounds usually reach saturation for a focused question.',
+          },
+          {
+            name: 'Stop with a written rule',
+            text: 'End when a batch adds no new concepts, methods, or venues, or when you hit a pre-declared date window. Write the rule down so a reader can audit your stopping point.',
+          },
+        ],
+      },
+      sections: [
+        {
+          heading: 'What each direction actually measures',
+          paragraphs: [
+            'Backward chaining reads the reference list, so it answers “what did this work build on?” Forward chaining reads the citing list, so it answers “what happened after this work?” The two are not interchangeable views of the same neighbourhood; they point in opposite directions in time.',
+            'That asymmetry is the reason single-direction snowballing produces biased reviews. A backward-only pass over a 2020 paper can never surface the 2023 baseline that superseded it. A forward-only pass from the same paper misses the 1990s work its method depends on.',
+          ],
+          table: {
+            headers: ['Direction', 'Follows', 'Finds', 'Systematic blind spot'],
+            rows: [
+              ['Backward', 'References in the seed paper', 'Foundations, methods, datasets the work reuses', 'Newer improvements, rebuttals, current SOTA'],
+              ['Forward', 'Papers citing the seed', 'Replications, critiques, follow-up baselines', 'Older foundations and shared ancestors'],
+            ],
+          },
+        },
+        {
+          heading: 'Where keyword search still belongs',
+          paragraphs: [
+            'Chaining only reaches what is connected to your seeds. Work that solves the same problem with different vocabulary, or that sits in an adjacent field with a separate citation community, stays invisible however many rounds you run.',
+            'The standard compromise is a short keyword pass first, to find two or three genuinely central seeds, then bidirectional chaining from those seeds. Chaining gives precision and traceability; keywords give coverage.',
+          ],
+        },
+        {
+          heading: 'How this maps onto two-paper questions',
+          paragraphs: [
+            'Citation chaining answers “what is around this paper?” A related but distinct question is “how are these two specific papers connected?” That is a path problem: find the shortest evidence-backed chain between two fixed endpoints and label every hop.',
+            'The two questions complement each other. Use chaining to build the neighbourhood; use a two-paper path search when you need to justify a specific claim such as “baseline A influenced method B” in a related-work section.',
+          ],
+          bullets: [
+            'Chaining: seed → expand → collect candidate literature.',
+            'Two-paper path: endpoint A → endpoint B → shortest evidence chain with alternatives.',
+            'Record the evidence type for every hop instead of treating all lines as equal.',
+          ],
+        },
+        {
+          heading: 'Common mistakes that weaken the result',
+          paragraphs: [
+            'The most frequent error is treating citation existence as endorsement. A citation can be supportive, contrastive, or a passing mention; metadata alone cannot tell you which.',
+            'The second is stopping at one hop. Two or three rounds are usually needed before new papers stop adding concepts. The third is failing to record the search date, which makes a forward-chaining review impossible to reproduce six months later.',
+          ],
+        },
+      ],
+      sources: [
+        { label: 'Wohlin, C. (2014). Guidelines for snowballing in systematic literature studies (EASE)', url: 'https://doi.org/10.1145/2601248.2601268' },
+        { label: 'CiteDuo architecture and graph construction notes', url: 'https://github.com/benbenlijie/citeduo/blob/main/ARCHITECTURE.md' },
+        { label: 'CiteDuo two-paper path implementation (server/pathfind.ts)', url: 'https://github.com/benbenlijie/citeduo/blob/main/server/pathfind.ts' },
+      ],
+    },
+    zh: {
+      title: '引文链怎么追：向后追溯与向前追踪的完整方法',
+      metaTitle: '向后追溯 vs 向前追踪引文链 | CiteDuo',
+      description:
+        '系统讲清向后追溯与向前追踪引文链：各自沿什么方向找、何时使用、如何判断饱和与停止，以及为什么完整综述两个方向都要做。',
+      eyebrow: '方法指南 · 滚雪球与引文链',
+      summaryAnswer:
+        '引文链是沿引用图向两个方向扩展检索的方法。向后追溯沿论文的参考文献走，指向它的奠基工作；向前追踪沿引用它的后续论文走，指向当前进展。可辩护的综述必须两个方向都做，因为任一单向检索都会系统性漏掉另一方向才有的文献。',
+      ctaLabel: '打开双论文路径示例',
+      ctaHref: buildAppPairUrl(pairOpenvlaRt2),
+      secondaryCtaLabel: '打开论文工作台',
+      secondaryCtaHref: buildAppHomeUrl('guide_chaining_zh'),
+      faq: FAQ.citationChaining.zh,
+      howTo: {
+        name: '如何执行双向引文链检索',
+        steps: [
+          {
+            name: '选定 1–3 篇种子论文并冻结基线',
+            text: '选择与问题真正相关而非仅仅高被引的论文。记录开始日期，因为向前追踪的结果会随新论文发表而变化。',
+          },
+          {
+            name: '沿参考文献向后追溯',
+            text: '打开参考文献列表，保留种子论文真正依赖的工作。优先选具体领域祖先，而不是每篇论文都会引用的泛用经典。',
+          },
+          {
+            name: '沿施引文献向前追踪',
+            text: '列出引用种子论文的后续工作。改进、反驳、复现和当前基线大多出现在这个方向。',
+          },
+          {
+            name: '对最有价值的新文献再扩展一层',
+            text: '对检索到的最强新论文重复同样两个方向。聚焦问题时通常两到三轮即可达到饱和。',
+          },
+          {
+            name: '用事先写下的规则停止',
+            text: '当新增一批文献不再带来新概念、新方法或新发表渠道，或触及事先声明的年份窗口时停止。写下规则，读者才能复核你的停止点。',
+          },
+        ],
+      },
+      sections: [
+        {
+          heading: '两个方向各自在测量什么',
+          paragraphs: [
+            '向后追溯读的是参考文献，回答“这项工作建立在什么之上”；向前追踪读的是施引列表，回答“这项工作之后发生了什么”。两者不是同一邻域的两个视角，而是在时间上指向相反方向。',
+            '这种不对称正是单向滚雪球容易产生偏倚综述的原因。只做向后追溯，永远找不到取代 2020 年论文的 2023 年基线；只做向前追踪，会漏掉该方法赖以成立的 1990 年代工作。',
+          ],
+          table: {
+            headers: ['方向', '沿着什么找', '能找到', '系统性盲区'],
+            rows: [
+              ['向后追溯', '种子论文的参考文献', '奠基工作、方法、复用的数据集', '更新的改进、反驳与当前最佳基线'],
+              ['向前追踪', '引用种子论文的文献', '复现、批评、后续基线', '更早的基础文献与共同祖先'],
+            ],
+          },
+        },
+        {
+          heading: '关键词检索仍然不可省略',
+          paragraphs: [
+            '引文链只能到达与种子相连的文献。用另一套术语解决同一问题的工作，或者处在相邻领域、有独立引用社区的工作，无论扩展多少轮都不会出现。',
+            '常见的折中是先做一轮短关键词检索，找到两三篇真正核心的种子，再从种子做双向引文链。引文链提供精度和可追溯性，关键词提供覆盖面。',
+          ],
+        },
+        {
+          heading: '与双论文关系问题的区别',
+          paragraphs: [
+            '引文链回答的是“这篇论文周围有什么”；另一个常被混淆的问题是“这两篇具体论文如何相连”。后者是路径问题：在两个固定端点之间寻找有证据支撑的最短链，并标注每一跳。',
+            '两个问题互补。用引文链建立邻域；当需要在相关工作章节中论证“基线 A 影响了方法 B”时，再用双论文路径检索给出具体证据链。',
+          ],
+          bullets: [
+            '引文链：种子 → 扩展 → 收集候选文献。',
+            '双论文路径：端点 A → 端点 B → 带证据类型与备选路线的最短链。',
+            '每一跳都记录证据类型，不要把所有的连线当成同一种关系。',
+          ],
+        },
+        {
+          heading: '削弱结论的常见错误',
+          paragraphs: [
+            '最常见的错误是把“存在引用”等同于“表示认可”。引用可能是支持、反驳或顺带提及，仅凭元数据无法区分。',
+            '第二个错误是只扩展一跳。通常需要两到三轮，新增文献才不再带来新概念。第三个错误是不记录检索日期，导致半年后无法复现这次向前追踪。',
+          ],
+        },
+      ],
+      sources: [
+        { label: 'Wohlin, C. (2014). 系统文献调研中的滚雪球指南（EASE）', url: 'https://doi.org/10.1145/2601248.2601268' },
+        { label: 'CiteDuo 架构与图谱构建说明（ARCHITECTURE.md）', url: 'https://github.com/benbenlijie/citeduo/blob/main/ARCHITECTURE.md' },
+        { label: 'CiteDuo 双论文路径实现（server/pathfind.ts）', url: 'https://github.com/benbenlijie/citeduo/blob/main/server/pathfind.ts' },
+      ],
+    },
+  },
+  {
+    id: 'citeduo-vs-litmaps',
+    category: 'compare',
+    slug: 'citeduo-vs-litmaps',
+    publishedAt: '2026-11-21',
+    updatedAt: SITE_FACTS.lastUpdated,
+    relatedIds: [
+      'connected-papers-alternatives',
+      'citeduo-vs-inciteful-literature-connector',
+      'how-to-check-if-two-papers-are-related',
+    ],
+    en: {
+      title: 'CiteDuo vs Litmaps: Two-Paper Paths vs Literature Maps',
+      metaTitle: 'CiteDuo vs Litmaps Comparison | CiteDuo',
+      description:
+        'Compare CiteDuo and Litmaps by workflow: map-based discovery with monitoring and Zotero sync, versus self-hosted two-paper path analysis.',
+      eyebrow: 'Comparison · Literature Mapping Tools',
+      summaryAnswer:
+        'Litmaps is a cloud literature-mapping product built around seed maps, with monitoring, Zotero sync, and shared visualizations. CiteDuo is a self-hostable, MIT-licensed tool focused on explaining how two specific papers connect. Litmaps is the better fit for ongoing monitoring of a topic; CiteDuo is the better fit for justifying a specific A-to-B claim without handing your library to a cloud account.',
+      ctaLabel: 'Try a two-paper path in CiteDuo',
+      ctaHref: buildAppPairUrl(pairSamPi0),
+      secondaryCtaLabel: 'Read the self-hosting guide',
+      secondaryCtaHref: '/docs/self-hosting-citeduo',
+      faq: FAQ.litmaps.en,
+      sections: [
+        {
+          heading: 'The short answer',
+          paragraphs: [
+            'These tools answer different questions. Litmaps asks “what else is in this neighbourhood, and what appeared since I last looked?” CiteDuo asks “how exactly are these two papers connected, and what kind of evidence supports each hop?”',
+            'If you maintain a living map of a research area and want alerts when new papers appear, Litmaps fits that loop. If you are writing a related-work paragraph and need to defend one specific connection, CiteDuo fits that loop.',
+          ],
+        },
+        {
+          heading: 'Capability comparison',
+          paragraphs: [
+            'The table below reflects each product’s documented behaviour as of November 2026. Verify current details on the vendors’ own pages before relying on any specific limit.',
+          ],
+          table: {
+            headers: ['Dimension', 'Litmaps', 'CiteDuo'],
+            rows: [
+              ['Core model', 'Seed map that expands from input papers', 'Citation graph plus explicit two-paper path search'],
+              ['Discovery algorithms', 'Shared citations & references, common authors, similar text', 'Direct citation, bibliographic coupling, co-citation, recommender, SPECTER2 similarity'],
+              ['Path between two fixed papers', 'Not the primary workflow', 'Ranked paths with per-hop evidence type and alternatives'],
+              ['New-paper monitoring', 'Monitor sends email alerts', 'Not built in'],
+              ['Reference manager sync', 'Zotero sync', 'BibTeX export; pair with Zotero'],
+              ['Hosting', 'Hosted cloud service', 'Self-hosted Bun + SQLite, or Docker'],
+              ['Data location', 'Your cloud account', 'Your machine'],
+              ['Licence', 'Proprietary, free tier plus paid Pro', 'MIT, free to self-host'],
+            ],
+          },
+        },
+        {
+          heading: 'Where Litmaps is stronger',
+          paragraphs: [
+            'Litmaps indexes a very large catalogue and turns it into visual maps with several layouts, including semantic, co-citation, and co-author views. Its Monitor feature emails you when new papers matching a topic appear, which is genuinely useful for staying current.',
+            'It also handles team and teaching workflows: maps can be shared with colleagues, students, and advisors, and Zotero sync keeps a library in step. CiteDuo does not offer monitoring, shared cloud maps, or reference-manager sync.',
+          ],
+        },
+        {
+          heading: 'Where CiteDuo is stronger',
+          paragraphs: [
+            'CiteDuo treats the two-paper question as a first-class problem rather than a side effect of map exploration. It returns ranked paths, labels every hop with an evidence type, penalises the weakest link, and provides structurally distinct alternatives.',
+            'It also runs as one Bun process with one SQLite file under the MIT licence, so an individual or lab can keep cached papers, notes, and graphs on their own machine with no account, and can audit the path-scoring code directly.',
+          ],
+        },
+        {
+          heading: 'How to choose',
+          paragraphs: [
+            'Choose Litmaps if your main loop is monitoring a field over time, sharing maps with a group, or syncing with Zotero. Choose CiteDuo if your main loop is proving or disproving a specific connection, or if you need the tool to run on your own infrastructure.',
+            'Running both is reasonable: use Litmaps to maintain the neighbourhood and CiteDuo when a specific pair needs an evidence chain you can defend in writing.',
+          ],
+        },
+      ],
+      sources: [
+        { label: 'Litmaps features overview', url: 'https://www.litmaps.com/features' },
+        { label: 'Litmaps search algorithms documentation', url: 'https://docs.litmaps.com/en/articles/9029858-search-algorithms-in-litmaps' },
+        { label: 'CiteDuo repository (MIT licence)', url: 'https://github.com/benbenlijie/citeduo' },
+      ],
+    },
+    zh: {
+      title: 'CiteDuo 与 Litmaps 对比：双论文路径 vs 文献地图',
+      metaTitle: 'CiteDuo vs Litmaps：哪个适合你 | CiteDuo',
+      description:
+        '按工作流比较 CiteDuo 与 Litmaps：云端文献地图、监控与 Zotero 同步，对比可自托管的双论文路径分析与证据类型标注。',
+      eyebrow: '工具对比 · 文献地图',
+      summaryAnswer:
+        'Litmaps 是以种子地图为核心的云端文献地图产品，提供新论文监控、Zotero 同步和共享可视化；CiteDuo 是可自托管、MIT 许可、专注解释两篇具体论文如何相连的工具。持续跟踪一个领域选 Litmaps，论证某一对论文的具体关联、并且不想把文献库交给云账号时选 CiteDuo。',
+      ctaLabel: '在 CiteDuo 里试一条双论文路径',
+      ctaHref: buildAppPairUrl(pairSamPi0),
+      secondaryCtaLabel: '阅读自托管指南',
+      secondaryCtaHref: '/docs/self-hosting-citeduo',
+      faq: FAQ.litmaps.zh,
+      sections: [
+        {
+          heading: '一句话结论',
+          paragraphs: [
+            '两者回答的是不同问题。Litmaps 问的是“这个邻域里还有什么，自我上次查看以来又出现了什么”；CiteDuo 问的是“这两篇论文究竟如何相连，每一跳由什么证据支撑”。',
+            '如果你要维护一个研究领域的动态地图，并在新论文出现时收到提醒，Litmaps 更贴合这个闭环。如果你正在写相关工作段落，需要论证某一条具体关联，CiteDuo 更贴合这个闭环。',
+          ],
+        },
+        {
+          heading: '能力对照',
+          paragraphs: [
+            '下表反映截至 2026 年 11 月双方公开文档描述的行为。具体额度与限制请以厂商页面当前信息为准。',
+          ],
+          table: {
+            headers: ['维度', 'Litmaps', 'CiteDuo'],
+            rows: [
+              ['核心模型', '以输入论文为种子向外扩展的地图', '引文网络 + 双论文显式路径检索'],
+              ['发现算法', '共同引用与参考文献、共同作者、文本相似', '直接引用、文献耦合、共被引、推荐边、SPECTER2 语义相似'],
+              ['两篇固定论文之间的路径', '不是主要工作流', '带逐跳证据类型与备选路线的排序路径'],
+              ['新论文监控', 'Monitor 邮件提醒', '不内置'],
+              ['文献管理器同步', 'Zotero 同步', 'BibTeX 导出，可配合 Zotero'],
+              ['托管方式', '云端托管服务', 'Bun + SQLite 自托管，或 Docker'],
+              ['数据位置', '你的云账号', '你自己的机器'],
+              ['许可证', '专有软件，免费版 + 付费 Pro', 'MIT，自托管免费'],
+            ],
+          },
+        },
+        {
+          heading: 'Litmaps 更强的地方',
+          paragraphs: [
+            'Litmaps 索引了很大的文献库，并提供多种地图布局，包括语义视图、共被引视图和共同作者视图。它的 Monitor 功能会在主题出现新论文时发邮件提醒，对持续跟进领域确实有用。',
+            '它也覆盖团队与教学场景：地图可以分享给同事、学生和导师，Zotero 同步能保持文献库一致。这些能力 CiteDuo 目前都不提供。',
+          ],
+        },
+        {
+          heading: 'CiteDuo 更强的地方',
+          paragraphs: [
+            'CiteDuo 把双论文问题当作一等公民，而不是地图探索的副产品。它返回排序路径，为每一跳标注证据类型，按最弱一跳降权，并给出结构上不同的备选路线。',
+            '它还以单个 Bun 进程加单个 SQLite 文件运行，MIT 许可证，个人或实验室可以把论文缓存、笔记和图谱留在自己的机器上，无需账号，也可以直接审阅路径评分代码。',
+          ],
+        },
+        {
+          heading: '如何选择',
+          paragraphs: [
+            '如果你的主要循环是长期跟踪一个领域、与团队共享地图或同步 Zotero，选 Litmaps。如果你的主要循环是论证或证伪某一条具体关联，或者需要工具跑在自己的基础设施上，选 CiteDuo。',
+            '两者同时使用也合理：用 Litmaps 维护邻域，用 CiteDuo 在某一对论文需要可写进论文的证据链时做精确分析。',
+          ],
+        },
+      ],
+      sources: [
+        { label: 'Litmaps 功能总览', url: 'https://www.litmaps.com/features' },
+        { label: 'Litmaps 检索算法文档', url: 'https://docs.litmaps.com/en/articles/9029858-search-algorithms-in-litmaps' },
+        { label: 'CiteDuo 仓库（MIT 许可证）', url: 'https://github.com/benbenlijie/citeduo' },
       ],
     },
   },

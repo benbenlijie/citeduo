@@ -55,6 +55,7 @@ describe('public site SSR, SEO metadata, hreflang, sitemap, and 404 semantics', 
     // the parent site instead of this process.
     expect(html).toContain("var apiBase = (location.pathname === '/papers' || location.pathname.indexOf('/papers/') === 0) ? '/papers' : ''")
     expect(html).toContain("sendBeacon(apiBase + '/api/analytics/event'")
+    expect(html).toContain("icon.setAttribute('href', apiBase + '/site-assets/favicon.svg')")
 
     // The beacon is inlined via a template literal, where "\\/" silently
     // collapses to "/". Parse it so a broken regex cannot ship.
@@ -155,8 +156,8 @@ describe('public site SSR, SEO metadata, hreflang, sitemap, and 404 semantics', 
     expect(text).toContain('https://citeduo.com/guides/')
   })
 
-  test('renders all 7 bilingual launch articles (14 URLs) with unique titles, reciprocal hreflang, and valid JSON-LD', async () => {
-    expect(SITE_ARTICLES).toHaveLength(7)
+  test('renders all 9 bilingual launch articles (18 URLs) with unique titles, reciprocal hreflang, and valid JSON-LD', async () => {
+    expect(SITE_ARTICLES).toHaveLength(9)
     const titles = new Set<string>()
 
     for (const article of SITE_ARTICLES) {

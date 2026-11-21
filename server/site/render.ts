@@ -216,6 +216,10 @@ function clientBeaconScript(pageEvent: 'landing_view' | 'page_view', locale: Sit
 (function(){
   // 营销页可挂在 /papers/ 子路径下；根绝对路径会打到主站而不是本服务。
   var apiBase = (location.pathname === '/papers' || location.pathname.indexOf('/papers/') === 0) ? '/papers' : '';
+  if (apiBase) {
+    var icon = document.querySelector('link[rel="icon"]');
+    if (icon) icon.setAttribute('href', apiBase + '/site-assets/favicon.svg');
+  }
   function send(ev, meta){
     try{
       var payload = JSON.stringify({ event: ev, path: location.pathname, referrer: document.referrer || '', meta: Object.assign({ locale: '${locale}' }, meta || {}) });
