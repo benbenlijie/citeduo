@@ -54,6 +54,7 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = realFetch
+  vi.unstubAllGlobals()
 })
 
 describe('ReaderPage', () => {
@@ -128,6 +129,31 @@ describe('ReaderPage', () => {
     await screen.findByTestId('reader-frame')
     const links = screen.getAllByRole('link')
     expect(links.some((l) => l.getAttribute('href') === 'https://arxiv.org/pdf/2401.00001')).toBe(true)
+  })
+
+  it('uses a mobile outline drawer instead of squeezing the article', async () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({
+        matches: false,
+        media: '(min-width: 1024px)',
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    )
+    renderReader()
+    await screen.findByTestId('reader-frame')
+
+    expect(screen.queryByRole('button', { name: 'Introduction' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '目录' }))
+    expect(screen.getByRole('dialog', { name: '论文目录' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Introduction' })).toBeInTheDocument()
+    fireEvent.click(screen.getAllByRole('button', { name: '关闭目录' })[0])
+    expect(screen.queryByRole('dialog', { name: '论文目录' })).not.toBeInTheDocument()
   })
 
   it('disables translation when no provider is configured', async () => {

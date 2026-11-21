@@ -1,6 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, ExternalLink, FileText, Loader2, Languages, Sparkles } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ExternalLink,
+  FileText,
+  ListTree,
+  Loader2,
+  Languages,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import {
   arxivAbsUrl,
   arxivHtmlUrl,
@@ -53,6 +63,7 @@ import {
   blockSourceText,
   ensureTranslationStyle,
   failPendingTranslations,
+  ensureReaderStyle,
   insertPlaceholder,
   isInTranslateWindow,
   isTranslationReady,
@@ -121,6 +132,11 @@ const ReaderPage: React.FC = () => {
   const [translateError, setTranslateError] = useState<string | null>(null)
 
   const [aiOpen, setAiOpen] = useState(false)
+  const [outlineOpen, setOutlineOpen] = useState(false)
+  const [wideReader, setWideReader] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
+    return window.matchMedia('(min-width: 1024px)').matches
+  })
   const [selection, setSelection] = useState('')
 
   const blocksRef = useRef<Element[]>([])
@@ -130,6 +146,15 @@ const ReaderPage: React.FC = () => {
   const [activeHl, setActiveHl] = useState<string | null>(null)
   const addHighlight = useHighlightsStore((s) => s.addHighlight)
   const deleteHighlight = useHighlightsStore((s) => s.deleteHighlight)
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const mql = window.matchMedia('(min-width: 1024px)')
+    const update = () => setWideReader(mql.matches)
+    update()
+    mql.addEventListener('change', update)
+    return () => mql.removeEventListener('change', update)
+  }, [])
 
   useEffect(() => {
     if (!arxivId) {
@@ -145,6 +170,7 @@ const ReaderPage: React.FC = () => {
     setSource(null)
     setWithheld(false)
     setPdfMode(false)
+    setOutlineOpen(false)
     setTranslated(false)
     setTranslateError(null)
     setProgress({ done: 0, total: 0 })
@@ -245,6 +271,7 @@ const ReaderPage: React.FC = () => {
   const handleFrameLoad = useCallback(() => {
     const doc = frameRef.current?.contentDocument
     if (!doc) return
+    ensureReaderStyle(doc)
     // The iframe can fire `load` after images settle, sometimes after the user
     // already started translating. Bind each document exactly once so restore
     // and the delegated listeners are not applied twice.
@@ -521,28 +548,104 @@ const ReaderPage: React.FC = () => {
   const pdf = arxivId ? arxivPdfUrl(arxivId) : '#'
   const noProviders = providersReady && providers.length === 0
   const notice = withheld ? withheldNotice() : sourceNotice(source)
+  const outlineList =
+    outline.length === 0 ? (
+      <p className="text-xs text-gray-500">无可用目录</p>
+    ) : (
+      <ul className="space-y-1">
+        {outline.map((item) => (
+          <li key={item.id}>
+            <button
+              type="button"
+              onClick={() => {
+                jumpTo(item.id)
+                setOutlineOpen(false)
+              }}
+              className="min-h-11 w-full truncate rounded px-2 py-2 text-left text-sm text-gray-300 hover:bg-gray-700"
+              style={{ paddingLeft: 8 + (item.level - 1) * 12 }}
+            >
+              {item.text}
+            </button>
+          </li>
+        ))}
+      </ul>
+    )
+  const aiAssistant = (
+    <AiAssistantPanel
+      arxivId={arxivId ?? readingKey}
+      selection={selection}
+      target={target}
+      onClose={() => setAiOpen(false)}
+    />
+  )
 
   return (
-    <div className="flex h-screen flex-col bg-gray-900 text-white">
-      <header className="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-4 py-2">
-        <div className="flex min-w-0 items-center gap-3">
+    <div className="flex h-screen flex-col overflow-hidden bg-gray-900 text-white">
+      <header className="flex flex-wrap items-center gap-2 border-b border-gray-700 bg-gray-800 px-3 py-2 lg:px-4">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             type="button"
             onClick={goBack}
-            className="flex items-center gap-1 rounded px-2 py-1 text-sm hover:bg-gray-700"
+            className="flex min-h-11 shrink-0 items-center gap-1 rounded px-2 py-2 text-sm hover:bg-gray-700"
           >
             <ArrowLeft className="h-4 w-4" /> 返回
           </button>
           <span className="truncate text-sm text-gray-300">arXiv:{arxivId}</span>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setAiOpen((o) => !o)}
+              disabled={!aiEnabled}
+              aria-label="AI 助手"
+              title={!aiEnabled ? '未配置可用的 AI provider（问答需要后端 LLM）' : undefined}
+              className="flex min-h-11 items-center gap-1 whitespace-nowrap rounded bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-600 disabled:text-gray-400"
+            >
+              <Sparkles className="h-3 w-3" />
+              <span className="sm:hidden">AI</span>
+              <span className="hidden sm:inline">AI 助手</span>
+            </button>
+            <a
+              href={abs}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="在 arXiv 打开"
+              title="在 arXiv 打开"
+              className="flex min-h-11 min-w-11 items-center justify-center gap-1 rounded px-2 text-blue-400 hover:bg-gray-700 hover:text-blue-300"
+            >
+              <ExternalLink className="h-4 w-4" />
+              <span className="hidden sm:inline">arXiv</span>
+            </a>
+            <a
+              href={pdf}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="查看 PDF"
+              title="查看 PDF"
+              className="flex min-h-11 min-w-11 items-center justify-center gap-1 rounded px-2 text-green-400 hover:bg-gray-700 hover:text-green-300"
+            >
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">PDF</span>
+            </a>
+          </div>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-1 text-sm sm:gap-2 lg:w-auto lg:justify-end">
+          {!wideReader && (
+            <button
+              type="button"
+              aria-expanded={outlineOpen}
+              onClick={() => setOutlineOpen((open) => !open)}
+              className="flex min-h-11 items-center gap-1 whitespace-nowrap rounded bg-gray-700 px-3 py-2 text-white hover:bg-gray-600"
+            >
+              <ListTree className="h-4 w-4" /> 目录
+            </button>
+          )}
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
             <button
               type="button"
               onClick={toggleTranslate}
               disabled={status !== 'ready' || noProviders}
               title={noProviders ? '未配置可用的翻译 provider' : undefined}
-              className="flex items-center gap-1 rounded bg-purple-600 px-3 py-1 text-white hover:bg-purple-500 disabled:cursor-not-allowed disabled:bg-gray-600 disabled:text-gray-400"
+              className="flex min-h-11 items-center gap-1 whitespace-nowrap rounded bg-purple-600 px-3 py-2 text-white hover:bg-purple-500 disabled:cursor-not-allowed disabled:bg-gray-600 disabled:text-gray-400"
             >
               {translating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Languages className="h-3 w-3" />}
               {translated ? '隐藏译文' : '翻译'}
@@ -552,7 +655,7 @@ const ReaderPage: React.FC = () => {
               value={target}
               onChange={(e) => onTargetChange(e.target.value)}
               disabled={translating}
-              className="rounded bg-gray-700 px-2 py-1 text-sm"
+              className="min-h-11 rounded bg-gray-700 px-2 py-2 text-sm"
             >
               {TARGETS.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -561,7 +664,7 @@ const ReaderPage: React.FC = () => {
               ))}
             </select>
             {translating && (
-              <span className="text-xs text-gray-400">
+              <span className="hidden text-xs text-gray-400 sm:inline">
                 {progress.done}/{progress.total}
               </span>
             )}
@@ -570,7 +673,7 @@ const ReaderPage: React.FC = () => {
             aria-label="阅读状态"
             value={readingEntry?.status ?? ''}
             onChange={(e) => setReadingStatus(readingKey, (e.target.value || null) as ReadingStatus | null)}
-            className="rounded bg-gray-700 px-2 py-1 text-sm"
+            className="min-h-11 rounded bg-gray-700 px-2 py-2 text-sm"
           >
             <option value="">未标记</option>
             {READING_STATUSES.map((s) => (
@@ -580,33 +683,8 @@ const ReaderPage: React.FC = () => {
             ))}
           </select>
           {typeof readingEntry?.progress === 'number' && (
-            <span className="text-xs text-gray-400">{readingEntry.progress}%</span>
+            <span className="hidden text-xs text-gray-400 sm:inline">{readingEntry.progress}%</span>
           )}
-          <button
-            type="button"
-            onClick={() => setAiOpen((o) => !o)}
-            disabled={!aiEnabled}
-            title={!aiEnabled ? '未配置可用的 AI provider（问答需要后端 LLM）' : undefined}
-            className="flex items-center gap-1 rounded bg-indigo-600 px-3 py-1 text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-gray-600 disabled:text-gray-400"
-          >
-            <Sparkles className="h-3 w-3" /> AI 助手
-          </button>
-          <a
-            href={abs}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-blue-400 hover:text-blue-300"
-          >
-            arXiv <ExternalLink className="h-3 w-3" />
-          </a>
-          <a
-            href={pdf}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-green-400 hover:text-green-300"
-          >
-            PDF <ExternalLink className="h-3 w-3" />
-          </a>
         </div>
       </header>
 
@@ -618,38 +696,25 @@ const ReaderPage: React.FC = () => {
 
       {/* 目录 / 正文 / AI 助手：面板宽度可拖拽调整 */}
       <ResizablePanelGroup direction="horizontal" autoSaveId="cpe:reader-layout" className="flex-1">
-        <ResizablePanel
-          id="outline"
-          order={1}
-          defaultSize={16}
-          minSize={10}
-          maxSize={35}
-          className="bg-gray-800"
-        >
-          <aside className="h-full overflow-y-auto p-3">
-            <h2 className="mb-2 text-xs font-semibold uppercase text-gray-400">目录</h2>
-            {outline.length === 0 ? (
-              <p className="text-xs text-gray-500">无可用目录</p>
-            ) : (
-              <ul className="space-y-1">
-                {outline.map((item) => (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => jumpTo(item.id)}
-                      className="w-full truncate rounded px-2 py-1 text-left text-sm text-gray-300 hover:bg-gray-700"
-                      style={{ paddingLeft: 8 + (item.level - 1) * 12 }}
-                    >
-                      {item.text}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </aside>
-        </ResizablePanel>
+        {wideReader && (
+          <>
+            <ResizablePanel
+              id="outline"
+              order={1}
+              defaultSize={16}
+              minSize={10}
+              maxSize={35}
+              className="bg-gray-800"
+            >
+              <aside className="h-full overflow-y-auto p-3">
+                <h2 className="mb-2 text-xs font-semibold uppercase text-gray-400">目录</h2>
+                {outlineList}
+              </aside>
+            </ResizablePanel>
 
-        <ResizableHandle withHandle />
+            <ResizableHandle withHandle />
+          </>
+        )}
 
         <ResizablePanel
           id="article"
@@ -815,20 +880,44 @@ const ReaderPage: React.FC = () => {
           )}
         </ResizablePanel>
 
-        {aiOpen && (
+        {wideReader && aiOpen && (
           <>
             <ResizableHandle withHandle />
             <ResizablePanel id="ai" order={3} defaultSize={24} minSize={16} maxSize={50} className="bg-gray-800">
-              <AiAssistantPanel
-                arxivId={arxivId ?? readingKey}
-                selection={selection}
-                target={target}
-                onClose={() => setAiOpen(false)}
-              />
+              {aiAssistant}
             </ResizablePanel>
           </>
         )}
       </ResizablePanelGroup>
+
+      {!wideReader && outlineOpen && (
+        <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="论文目录">
+          <button
+            type="button"
+            aria-label="关闭目录"
+            onClick={() => setOutlineOpen(false)}
+            className="absolute inset-0 bg-black/60"
+          />
+          <aside className="absolute inset-y-0 left-0 flex w-[min(85vw,20rem)] flex-col bg-gray-800 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-gray-700 px-3 py-2">
+              <h2 className="text-sm font-semibold text-white">目录</h2>
+              <button
+                type="button"
+                aria-label="关闭目录"
+                onClick={() => setOutlineOpen(false)}
+                className="flex h-11 w-11 items-center justify-center rounded text-gray-400 hover:bg-gray-700 hover:text-white"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">{outlineList}</div>
+          </aside>
+        </div>
+      )}
+
+      {!wideReader && aiOpen && (
+        <div className="fixed inset-0 z-50 bg-gray-900">{aiAssistant}</div>
+      )}
     </div>
   )
 }

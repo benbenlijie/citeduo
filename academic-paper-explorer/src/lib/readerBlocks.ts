@@ -221,3 +221,25 @@ export function ensureTranslationStyle(doc: Document): void {
     'mark[data-hl-id]{border-radius:2px;color:inherit}'
   doc.head.appendChild(style)
 }
+
+export function ensureReaderStyle(doc: Document): void {
+  if (doc.querySelector('style[data-cn-reader-style]')) return
+  const style = doc.createElement('style')
+  style.setAttribute('data-cn-reader-style', '')
+  style.textContent = `
+@media (max-width: 1023px) {
+  html, body { max-width: 100% !important; overflow-x: hidden !important; }
+  .arxiv-html-site-chrome, .ltx_page_navbar, .arxiv-html-footer, .ds-site-footer, .ds-skip-link { display: none !important; }
+  .ltx_page_main { box-sizing: border-box !important; width: 100% !important; max-width: 100% !important; padding-left: 12px !important; padding-right: 12px !important; }
+  .ltx_page_content, .ltx_page_logo { max-width: 100% !important; width: 100% !important; }
+  .ltx_flex_figure, .ltx_flex_cell, .ltx_transformed_outer, .ltx_transformed_inner { max-width: 100% !important; width: 100% !important; min-width: 0 !important; transform: none !important; }
+  .ltx_tabular { display: block !important; width: 100% !important; max-width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch; }
+  .ltx_tabular > tbody { display: table !important; width: max-content !important; min-width: 100% !important; }
+  .ltx_figure, .ltx_table, figure { max-width: 100% !important; overflow-x: auto !important; }
+  .ltx_equation, .ltx_eqn_table, .ltx_math { max-width: 100% !important; overflow-x: auto !important; }
+  .ltx_personname { display: block !important; line-height: 1.6 !important; }
+  img, svg { max-width: 100% !important; height: auto !important; }
+}
+`
+  doc.head.appendChild(style)
+}

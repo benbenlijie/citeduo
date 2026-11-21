@@ -12,6 +12,7 @@ import {
   setTranslationsVisible,
   toggleTranslation,
   ensureTranslationStyle,
+  ensureReaderStyle,
   translationNodeFor,
   isInTranslateWindow,
   isTranslationReady,
@@ -206,6 +207,18 @@ describe('ensureTranslationStyle', () => {
     ensureTranslationStyle(d)
     ensureTranslationStyle(d)
     expect(d.querySelectorAll('style[data-cn-style]')).toHaveLength(1)
+  })
+})
+
+describe('ensureReaderStyle', () => {
+  it('injects the mobile reader overrides once', () => {
+    const d = doc('<p>Hello world</p>')
+    ensureReaderStyle(d)
+    ensureReaderStyle(d)
+    const styles = d.querySelectorAll('style[data-cn-reader-style]')
+    expect(styles).toHaveLength(1)
+    expect(styles[0].textContent).toContain('.arxiv-html-site-chrome')
+    expect(styles[0].textContent).toContain('overflow-x: auto')
   })
 })
 
