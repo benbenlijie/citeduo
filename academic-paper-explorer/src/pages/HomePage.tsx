@@ -26,6 +26,7 @@ const HomePage: React.FC = () => {
     comparePaper,
     setComparePaper,
     connectPair,
+    submittedQuery,
   } = useUiStore()
   useUrlSync()
   const { data: networkData } = usePaperNetwork(selectedPaper, graphDepth ?? undefined, graphMaxNodes ?? undefined)
@@ -46,6 +47,10 @@ const HomePage: React.FC = () => {
   React.useEffect(() => {
     if (selectedPaper) setMobilePane('graph')
   }, [selectedPaper])
+
+  React.useEffect(() => {
+    if (submittedQuery) setMobilePane('list')
+  }, [submittedQuery])
 
   const emptyGraphState = (
     <div className="flex h-full items-center justify-center px-4">
