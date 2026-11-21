@@ -214,13 +214,15 @@ pre{background:#050811;border:1px solid var(--line);border-radius:.7rem;padding:
 function clientBeaconScript(pageEvent: 'landing_view' | 'page_view', locale: SiteLocale): string {
   return `<script>
 (function(){
+  // 营销页可挂在 /papers/ 子路径下；根绝对路径会打到主站而不是本服务。
+  var apiBase = (location.pathname === '/papers' || location.pathname.indexOf('/papers/') === 0) ? '/papers' : '';
   function send(ev, meta){
     try{
       var payload = JSON.stringify({ event: ev, path: location.pathname, referrer: document.referrer || '', meta: Object.assign({ locale: '${locale}' }, meta || {}) });
       if (navigator.sendBeacon) {
-        navigator.sendBeacon('/api/analytics/event', new Blob([payload], { type: 'application/json' }));
+        navigator.sendBeacon(apiBase + '/api/analytics/event', new Blob([payload], { type: 'application/json' }));
       } else {
-        fetch('/api/analytics/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true, credentials: 'same-origin' }).catch(function(){});
+        fetch(apiBase + '/api/analytics/event', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true, credentials: 'same-origin' }).catch(function(){});
       }
     }catch(_){}
   }

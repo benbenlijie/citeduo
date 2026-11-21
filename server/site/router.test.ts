@@ -50,6 +50,17 @@ describe('public site SSR, SEO metadata, hreflang, sitemap, and 404 semantics', 
     expect(html).toContain('href="/compare/"')
     expect(html).toContain('href="/about"')
     expect(html).toContain('<details><summary>What does CiteDuo do?</summary>')
+
+    // Conversion beacons must follow the /papers/ sub-path, otherwise they hit
+    // the parent site instead of this process.
+    expect(html).toContain("var apiBase = (location.pathname === '/papers' || location.pathname.indexOf('/papers/') === 0) ? '/papers' : ''")
+    expect(html).toContain("sendBeacon(apiBase + '/api/analytics/event'")
+
+    // The beacon is inlined via a template literal, where "\\/" silently
+    // collapses to "/". Parse it so a broken regex cannot ship.
+    const beacon = html.match(/<script>\s*\(function\(\)\{[\s\S]*?apiBase[\s\S]*?<\/script>/)
+    expect(beacon).not.toBeNull()
+    expect(() => new Function(beacon![0].replace(/^<script>|<\/script>$/g, ''))).not.toThrow()
   })
 
   test('renders Simplified Chinese landing page at /zh/ and 301-redirects bare /zh preserving query string', async () => {
