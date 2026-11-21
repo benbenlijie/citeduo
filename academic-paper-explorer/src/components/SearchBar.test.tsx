@@ -41,6 +41,17 @@ describe('SearchBar history', () => {
     expect(useUiStore.getState().submittedQuery).toEqual({ query: 'transformers', query_type: 'keyword' })
   })
 
+  it('keeps the submit button reachable on narrow screens', () => {
+    useSearchHistoryStore.setState({ entries: ['attention'] })
+    render(<SearchBar />)
+    fireEvent.focus(screen.getByPlaceholderText(/输入关键词/))
+
+    // 窄屏按钮堆叠在输入框下方，历史面板若绝对定位会盖住它而无法提交。
+    const panel = screen.getByTestId('search-history-panel')
+    expect(panel.className).not.toMatch(/(^|\s)absolute(\s|$)/)
+    expect(panel.className).toContain('sm:absolute')
+  })
+
   it('removes and clears history entries', () => {
     useSearchHistoryStore.setState({ entries: ['a', 'b'] })
     render(<SearchBar />)

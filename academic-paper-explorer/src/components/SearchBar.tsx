@@ -92,7 +92,11 @@ const SearchBar: React.FC = () => {
         />
 
         {showHistory && (
-          <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-lg border border-gray-600 bg-gray-700 shadow-lg">
+          // 移动端垂直堆叠时，浮层会盖住下方提交按钮，故窄屏改为文档流展开。
+          <div
+            data-testid="search-history-panel"
+            className="z-20 mt-1 max-h-[50vh] overflow-y-auto rounded-lg border border-gray-600 bg-gray-700 shadow-lg sm:absolute sm:inset-x-0 sm:top-full sm:max-h-none sm:overflow-hidden"
+          >
             <div className="flex items-center justify-between px-3 py-1.5 text-xs text-gray-400">
               <span className="flex items-center gap-1">
                 <History className="h-3 w-3" /> 搜索历史
