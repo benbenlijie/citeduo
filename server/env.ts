@@ -24,6 +24,7 @@ export const env = {
   smtpFrom: opt('SMTP_FROM'),
   internalToken: opt('INTERNAL_TOKEN'),
   basePath: opt('BASE_PATH') ?? '',
+  icpBeianNumber: opt('ICP_BEIAN_NUMBER'),
   trustProxy: opt('TRUST_PROXY') === '1' || opt('TRUST_PROXY') === 'true',
   port: Number(opt('PORT') ?? 8787),
   hostname: opt('HOST') ?? '127.0.0.1',

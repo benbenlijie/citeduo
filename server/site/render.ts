@@ -1,4 +1,5 @@
 import { ABOUT_COPY } from './content/about'
+import { env } from '../env'
 import { articlePath, SITE_ARTICLES } from './content/articles'
 import { CATEGORY_COPY, categoryPath } from './content/categories'
 import { HOME_COPY } from './content/home'
@@ -369,6 +370,7 @@ function renderFooter(locale: SiteLocale): string {
       <a href="${escapeHtml(buildGithubOutboundUrl('footer', locale))}" target="_blank" rel="noopener noreferrer" data-track="github_outbound" data-placement="footer">GitHub (${SITE_FACTS.licenseSpdx})</a>
     </div>
   </div>
+  ${env.icpBeianNumber ? `<div style="text-align:center"><a href="https://beian.miit.gov.cn/">${escapeHtml(env.icpBeianNumber)}</a></div>` : ''}
 </footer>`
 }
 

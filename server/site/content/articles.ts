@@ -285,7 +285,7 @@ const FAQ = {
     ],
     zh: [
       {
-        question: '���后追溯和向前追踪有什么区别？',
+        question: '向后追溯和向前追踪有什么区别？',
         answer:
           '向后追溯沿着论文自己的参考文献走，指向它的奠基工作；向前追踪沿着引用它的后续论文走，指向改进、反驳和当前基线。',
       },
@@ -413,7 +413,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     category: 'guides',
     slug: 'how-to-check-if-two-papers-are-related',
     publishedAt: '2026-11-19',
-    updatedAt: SITE_FACTS.lastUpdated,
+    updatedAt: '2026-11-21',
     relatedIds: [
       'citation-path-vs-bibliographic-coupling-vs-co-citation',
       'how-to-use-citation-networks-in-a-literature-review',
@@ -541,7 +541,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     category: 'guides',
     slug: 'citation-path-vs-bibliographic-coupling-vs-co-citation',
     publishedAt: '2026-11-19',
-    updatedAt: SITE_FACTS.lastUpdated,
+    updatedAt: '2026-11-21',
     relatedIds: [
       'how-to-check-if-two-papers-are-related',
       'citeduo-vs-inciteful-literature-connector',
@@ -651,7 +651,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     category: 'compare',
     slug: 'citeduo-vs-inciteful-literature-connector',
     publishedAt: '2026-11-19',
-    updatedAt: SITE_FACTS.lastUpdated,
+    updatedAt: '2026-11-21',
     relatedIds: [
       'connected-papers-alternatives',
       'how-to-check-if-two-papers-are-related',
@@ -775,7 +775,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     category: 'compare',
     slug: 'connected-papers-alternatives',
     publishedAt: '2026-11-19',
-    updatedAt: SITE_FACTS.lastUpdated,
+    updatedAt: '2026-11-21',
     relatedIds: [
       'citeduo-vs-inciteful-literature-connector',
       'how-to-check-if-two-papers-are-related',
@@ -893,7 +893,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     category: 'guides',
     slug: 'how-to-use-citation-networks-in-a-literature-review',
     publishedAt: '2026-11-19',
-    updatedAt: SITE_FACTS.lastUpdated,
+    updatedAt: '2026-11-21',
     relatedIds: [
       'how-to-check-if-two-papers-are-related',
       'citation-path-vs-bibliographic-coupling-vs-co-citation',
@@ -999,7 +999,7 @@ export const SITE_ARTICLES: SiteArticleSpec[] = [
     category: 'docs',
     slug: 'self-hosting-citeduo',
     publishedAt: '2026-11-19',
-    updatedAt: SITE_FACTS.lastUpdated,
+    updatedAt: '2026-11-21',
     relatedIds: [
       'how-to-check-if-two-papers-are-related',
       'citeduo-vs-inciteful-literature-connector',
@@ -1143,7 +1143,7 @@ bun run server
     category: 'guides',
     slug: 'verified-two-paper-citation-cases',
     publishedAt: '2026-11-21',
-    updatedAt: SITE_FACTS.lastUpdated,
+    updatedAt: '2026-11-21',
     relatedIds: [
       'how-to-check-if-two-papers-are-related',
       'citation-path-vs-bibliographic-coupling-vs-co-citation',
@@ -1381,7 +1381,7 @@ OpenVLA → RT-2
     category: 'guides',
     slug: 'citation-chaining-forward-and-backward',
     publishedAt: '2026-11-21',
-    updatedAt: SITE_FACTS.lastUpdated,
+    updatedAt: '2026-11-22',
     relatedIds: [
       'how-to-use-citation-networks-in-a-literature-review',
       'how-to-check-if-two-papers-are-related',
@@ -1565,7 +1565,7 @@ OpenVLA → RT-2
     category: 'compare',
     slug: 'citeduo-vs-litmaps',
     publishedAt: '2026-11-21',
-    updatedAt: SITE_FACTS.lastUpdated,
+    updatedAt: '2026-11-21',
     relatedIds: [
       'connected-papers-alternatives',
       'citeduo-vs-inciteful-literature-connector',

@@ -17,6 +17,7 @@ import {
 import { useUiStore } from '../store/useUiStore'
 import { usePaperNetwork } from '../hooks/usePaperNetwork'
 import { useUrlSync } from '../hooks/useUrlSync'
+import { api } from '../services/api'
 
 const HomePage: React.FC = () => {
   const {
@@ -30,6 +31,17 @@ const HomePage: React.FC = () => {
   } = useUiStore()
   useUrlSync()
   const { data: networkData } = usePaperNetwork(selectedPaper, graphDepth ?? undefined, graphMaxNodes ?? undefined)
+  const [icpBeianNumber, setIcpBeianNumber] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    let cancelled = false
+    api.getConfig().then(({ icpBeianNumber }) => {
+      if (!cancelled) setIcpBeianNumber(icpBeianNumber)
+    }).catch(() => {
+      // 站点配置暂不可用时仍可正常使用工作台。
+    })
+    return () => { cancelled = true }
+  }, [])
 
   React.useEffect(() => {
     const src = new URLSearchParams(window.location.search).get('src') ?? undefined
@@ -293,6 +305,13 @@ const HomePage: React.FC = () => {
             <span>数据源: OpenAlex · Semantic Scholar · CrossRef</span>
           </div>
         </div>
+        {icpBeianNumber && (
+          <div className="text-center">
+            <a className="inline-flex min-h-11 items-center underline" href="https://beian.miit.gov.cn/">
+              {icpBeianNumber}
+            </a>
+          </div>
+        )}
       </footer>
     </div>
   )

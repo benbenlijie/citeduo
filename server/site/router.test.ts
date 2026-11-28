@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { openDb } from '../db'
 import { ensureUsageContext, recordClientEvent } from '../analytics'
+import { env } from '../env'
 import { articlePath, SITE_ARTICLES } from './content/articles'
 import { categoryPath } from './content/categories'
 import { HOME_COPY } from './content/home'
 import { SITE_FACTS } from './facts'
-import { handlePublicSiteRequest } from './router'
+import { handlePublicSiteRequest, listSitemapEntries } from './router'
 
 function extractJsonLd(html: string): Record<string, unknown>[] {
   const blocks: Record<string, unknown>[] = []
@@ -18,6 +19,39 @@ function extractJsonLd(html: string): Record<string, unknown>[] {
 }
 
 describe('public site SSR, SEO metadata, hreflang, sitemap, and 404 semantics', () => {
+  test('only renders the ICP link when configured, with escaped text in both languages', async () => {
+    const original = env.icpBeianNumber
+    try {
+      for (const path of ['/site/', '/site/zh/']) {
+        const req = new Request(`https://citeduo.com${path}`)
+        env.icpBeianNumber = undefined
+        const unsetHtml = await (await handlePublicSiteRequest(req, new URL(req.url)))!.text()
+        expect(unsetHtml).not.toContain('https://beian.miit.gov.cn/')
+        env.icpBeianNumber = '测试ICP <备案号>'
+        const html = await (await handlePublicSiteRequest(req, new URL(req.url)))!.text()
+        expect(html).toContain('href="https://beian.miit.gov.cn/">测试ICP &lt;备案号&gt;</a>')
+      }
+    } finally {
+      env.icpBeianNumber = original
+    }
+  })
+
+  test('updates only the changed article, its category and the landing page in the sitemap', () => {
+    const article = SITE_ARTICLES[0]
+    const original = article.updatedAt
+    try {
+      const before = listSitemapEntries('en')
+      article.updatedAt = '2099-01-02'
+      const updated = listSitemapEntries('en')
+      const paths = updated
+        .filter((entry, index) => entry.lastmod !== before[index].lastmod)
+        .map((entry) => new URL(entry.loc).pathname)
+      expect(paths).toEqual(['/', categoryPath(article.category, 'en'), articlePath(article, 'en')])
+    } finally {
+      article.updatedAt = original
+    }
+  })
+
   test('renders English landing page via /site/ with H1, canonical, hreflang, OG image, and valid JSON-LD', async () => {
     const req = new Request('https://citeduo.com/site/')
     const res = await handlePublicSiteRequest(req, new URL(req.url))

@@ -8,7 +8,7 @@
 
 - 源站、Nginx 配置、双语 SSR 页面、sitemap、robots、404 和 `/papers/` 深链已在生产服务器准备完成。
 - `citeduo.com` 当前被火山引擎未备案域名网关拦截：HTTP 302 到 `webblock.volcengine.com`，HTTPS 在 TLS 阶段被重置。
-- 当前在线 Demo 继续使用 `https://watchdeep.net/papers/`。
+- 现有在线 Demo 继续使用 `https://watchdeep.net/papers/`。新营销站在备案期只做内部验收。
 - 备案期间不要启用 `watchdeep.net` 到 `citeduo.com` 的 301，也不要向 Search Console/Bing 提交新域名 sitemap。
 
 ## 2. 备案材料清单
@@ -54,7 +54,7 @@
 ## 4. 备案期间可以继续做的事
 
 - 继续完善中英文内容页和事实一致性。
-- 在本地或 `watchdeep.net/papers/` 验证应用功能。
+- 在本地验证营销页和应用功能。备案期不对外分发营销页链接。
 - 运行 `bun run test:server`、前端测试、typecheck、lint 和构建。
 - 验证示例论文对和两篇论文关系分析。
 - 准备 Search Console/Bing 账号和验证方式，但不要提交未放行的 sitemap。
@@ -65,7 +65,7 @@
 
 ### 5.1 代码与构建
 
-1. 将备案号加入站点页脚，并链接到 `https://beian.miit.gov.cn/`。
+1. 获批后在 `server/.env` 填入正式的 `ICP_BEIAN_NUMBER`。服务重启后验证中英文首页和工作台首页页脚都显示完整号码，并指向 `https://beian.miit.gov.cn/`。留空则隐藏。
 2. 使用正式域名构建：
 
 ```bash
@@ -102,7 +102,7 @@ curl -sI http://citeduo.com/
 curl -sI https://www.citeduo.com/
 ```
 
-预期：首页、中文页、About、三个分类聚合页和 `/papers/` 深链均为 200；`robots.txt` 包含 sitemap；sitemap 为 XML（当前中英文各 12 个 URL）；`llms.txt` 可读；未知路径 404；HTTP 和 `www` 正确跳转。
+预期首页、中文页、About、三个分类聚合页和 `/papers/` 深链均为 200。两个语言 sitemap 分别验收全部 14 个 URL，并核对 canonical 与 hreflang。`robots.txt` 包含 sitemap，`llms.txt` 可读，未知路径返回 404，HTTP 和 `www` 正确跳转。
 
 ### 5.4 站长平台
 
@@ -113,14 +113,14 @@ curl -sI https://www.citeduo.com/
 
 ### 5.5 GEO baseline
 
-使用 `docs/seo-geo/geo-monitoring-prompts-and-baseline.md` 中的固定问题集，记录发布后第 1 周、第 2 周和第 4 周的结果。
+使用 [GEO 基线清单](./geo-monitoring-prompts-and-baseline.md) 的固定题集和评分规则，记录上线后第 1 周和第 4 周的结果。
 
 ## 6. 旧域名迁移
 
 只有在新站满足以下条件后，才启用 `watchdeep.net` 的 301：
 
 - `citeduo.com` 连续稳定可访问。
-- 首页、中文页、About、分类聚合页、14 篇内容页和 `/papers/` 深链验收通过。
+- 双语首页、About、分类聚合页、18 个双语文章 URL 和 `/papers/` 深链验收通过。
 - Search Console 和 Bing 已接入。
 - 旧地址查询参数映射通过。
 - 已准备回滚路径。

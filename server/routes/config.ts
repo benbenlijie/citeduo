@@ -1,5 +1,6 @@
 import { json } from '../errors'
 import { config } from '../config'
+import { env } from '../env'
 
 /**
  * Client-visible defaults. The connect panel needs `connectLocalOnly` before it
@@ -8,5 +9,10 @@ import { config } from '../config'
  * (issue #7).
  */
 export async function configRoute(): Promise<Response> {
-  return json({ data: { connectLocalOnly: config.connect.localOnly } })
+  return json({
+    data: {
+      connectLocalOnly: config.connect.localOnly,
+      icpBeianNumber: env.icpBeianNumber ?? null,
+    },
+  })
 }

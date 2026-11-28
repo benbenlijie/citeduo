@@ -85,9 +85,12 @@ export const api = {
    * upstream. `CONNECT_LOCAL_ONLY` is an operator setting, so the client asks
    * instead of guessing.
    */
-  async getConfig(): Promise<{ connectLocalOnly: boolean }> {
+  async getConfig(): Promise<{ connectLocalOnly: boolean; icpBeianNumber: string | null }> {
     const data = await request('/config')
-    return { connectLocalOnly: Boolean(data?.data?.connectLocalOnly) }
+    return {
+      connectLocalOnly: Boolean(data?.data?.connectLocalOnly),
+      icpBeianNumber: typeof data?.data?.icpBeianNumber === 'string' ? data.data.icpBeianNumber.trim() || null : null,
+    }
   },
   networkWithPolling,
 }

@@ -22,10 +22,14 @@ export interface SitemapEntry {
 }
 
 export function listSitemapEntries(locale: SiteLocale): SitemapEntry[] {
+  const latestArticleUpdate = SITE_ARTICLES.reduce<string>(
+    (latest, article) => article.updatedAt > latest ? article.updatedAt : latest,
+    SITE_FACTS.lastUpdated,
+  )
   const entries: SitemapEntry[] = [
     {
       loc: absoluteSiteUrl(locale === 'zh' ? '/zh/' : '/'),
-      lastmod: SITE_FACTS.lastUpdated,
+      lastmod: latestArticleUpdate,
       enUrl: absoluteSiteUrl('/'),
       zhUrl: absoluteSiteUrl('/zh/'),
     },
@@ -41,7 +45,10 @@ export function listSitemapEntries(locale: SiteLocale): SitemapEntry[] {
     const zhUrl = absoluteSiteUrl(categoryPath(category, 'zh'))
     entries.push({
       loc: locale === 'zh' ? zhUrl : enUrl,
-      lastmod: SITE_FACTS.lastUpdated,
+      lastmod: SITE_ARTICLES.reduce<string>(
+        (latest, article) => article.category === category && article.updatedAt > latest ? article.updatedAt : latest,
+        SITE_FACTS.lastUpdated,
+      ),
       enUrl,
       zhUrl,
     })
@@ -112,16 +119,13 @@ ${articles}
 }
 
 export function renderSitemapIndexXml(): string {
-  const lastmod = SITE_FACTS.lastUpdated
   return `<?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
     <loc>${escapeHtml(absoluteSiteUrl('/sitemap-en.xml'))}</loc>
-    <lastmod>${escapeHtml(lastmod)}</lastmod>
   </sitemap>
   <sitemap>
     <loc>${escapeHtml(absoluteSiteUrl('/sitemap-zh.xml'))}</loc>
-    <lastmod>${escapeHtml(lastmod)}</lastmod>
   </sitemap>
 </sitemapindex>
 `

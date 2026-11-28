@@ -12,6 +12,8 @@ vi.mock('../components/ConnectionPanel', () => ({ default: () => null }))
 vi.mock('../components/ConnectionCapsule', () => ({ default: () => null }))
 vi.mock('../components/FilterPanel', () => ({ default: () => null }))
 vi.mock('../components/StarConversionPrompt', () => ({ HeaderStarLink: () => null }))
+const configMock = vi.hoisted(() => ({ getConfig: vi.fn() }))
+vi.mock('../services/api', () => ({ api: configMock }))
 vi.mock('../hooks/usePaperNetwork', () => ({ usePaperNetwork: () => ({ data: null }) }))
 vi.mock('../hooks/useUrlSync', () => ({ useUrlSync: () => undefined }))
 vi.mock('../lib/conversion', () => ({
@@ -33,11 +35,20 @@ const paper = {
 }
 
 beforeEach(() => {
+  configMock.getConfig.mockResolvedValue({ connectLocalOnly: false, icpBeianNumber: null })
   useUiStore.setState({
     selectedPaper: null,
     submittedQuery: null,
     comparePaper: null,
   })
+})
+
+it('shows the official filing link only once a number is configured', async () => {
+  const number = '测试ICP备00000000号-1'
+  configMock.getConfig.mockResolvedValue({ connectLocalOnly: false, icpBeianNumber: number })
+  render(<HomePage />)
+  expect(screen.queryByRole('link', { name: number })).not.toBeInTheDocument()
+  expect(await screen.findByRole('link', { name: number })).toHaveAttribute('href', 'https://beian.miit.gov.cn/')
 })
 
 describe('mobile pane selection', () => {
